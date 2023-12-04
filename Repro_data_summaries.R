@@ -49,11 +49,11 @@ Data_checks <- Repro_df %>% filter(is.na(Final_Stage) & Bad_Slide != "Yes") #Don
 ##Write output of cleaned data
 write_xlsx(Repro_df, "Output/Repro_data_2023 12_cleaned.xlsx", format_headers = TRUE)
 #
-#Dataframes by Estuary
-SL_oysters <- Repro_df %>% subset(Estuary == "SL")
-LX_oysters <- Repro_df %>% subset(Estuary == "LX")
-LW_oysters <- Repro_df %>% subset(Site == "LW")
-CR_oysters <- Repro_df %>% subset(Estuary == "CR")
+#Dataframes by Estuary - counts of each stage
+SL_oysters <- Repro_df %>% subset(Estuary == "SL") 
+LX_oysters <- Repro_df %>% subset(Estuary == "LX") 
+LW_oysters <- Repro_df %>% subset(Site == "LW") 
+CR_oysters <- Repro_df %>% subset(Estuary == "CR") %>% mutate(Site = as.factor(ifelse(Station == "1" | Station == "2", "CR-E", "CR-W"))) 
 All_oysters <- rbind(SL_oysters, LX_oysters, LW_oysters, CR_oysters)
 #
 write_xlsx(All_oysters, "Output/Repro_data_2023 12_cleaned_final.xlsx", format_headers = TRUE)
@@ -63,16 +63,16 @@ Stages <- c("0" = "Immature", "1" = "Developing", "2" = "Ripe/Spawning", "3" = "
 cbPalette <- c("#333333", "#D55E00", "#E69F00", "#F0E442", "#009E73", "#56B4E9", "#9966FF")
 names(cbPalette) <- levels(Repro_df$Final_Stage)
 StaFill <- scale_fill_manual(name = "Stage", labels = Stages, values = cbPalette, na.value = "#999999")
-
 #
 #
 ####Overall annual pattern####
 #
 ##Working with all_oysters
+All_oysters_clean <- All_oysters %>% subset(Final_Stage != "M/F" & Final_Stage != "8") %>% droplevels()
 #Group by Month to compare among months 
-(Monthly_mean_counts_All <- All_oysters %>% filter(Final_Stage != "M/F" & Final_Stage != "8") %>%
+(Monthly_mean_counts_All <- All_oysters_clean %>% 
   group_by(Month, Final_Stage) %>% 
-  count() %>% #ungroup() %>%
+    count() %>%
   summarize(meanCount = mean(n),
             minCount = min(n),
             maxCount = max(n)) %>%
@@ -80,9 +80,67 @@ StaFill <- scale_fill_manual(name = "Stage", labels = Stages, values = cbPalette
               names_from = Final_Stage,
               values_from = c("meanCount", "minCount", "maxCount"), 
               names_glue = "{Final_Stage}_{.value}"))
-  
-All_oysters %>% group_by(Month) %>% filter(Final_Stage != "M/F" & Final_Stage != "8") %>%
+#  
+All_oysters_clean %>% group_by(Month) %>% 
   ggplot(aes(Month, fill = Final_Stage))+
   geom_bar(position = "fill")+
   scale_y_continuous("Percentage", labels = scales::percent_format(), expand = c(0,0))+
   StaFill
+#
+##pearson chi-squared
+(All_test <- chisq.test(All_oysters_clean$Final_Stage, All_oysters_clean$Month))
+(All_test_pvalues <- chisq.posthoc.test::chisq.posthoc.test(xtabs(~Final_Stage + Month, All_oysters_clean), method = "bonferroni"))
+#
+##KW test
+kruskal.test(as.numeric(Final_Stage) ~ Month, data = All_oysters_clean)
+pairwise.wilcox.test(as.numeric(All_oysters_clean$Final_Stage), All_oysters_clean$Month, p.adjust.method = "BH")
+#
+#
+##Site differences
+(Site_mean_counts_All <- All_oysters_clean %>% 
+    group_by(Site, Final_Stage) %>% 
+    count() %>%
+    summarize(meanCount = mean(n),
+              minCount = min(n),
+              maxCount = max(n)) %>%
+    pivot_wider(id_cols = Site,
+                names_from = Final_Stage,
+                values_from = c("meanCount", "minCount", "maxCount"), 
+                names_glue = "{Final_Stage}_{.value}"))
+#
+All_oysters_clean %>% group_by(Site) %>% 
+ggplot(aes(Site, fill = Final_Stage))+
+  geom_bar(position = "fill")+
+  scale_y_continuous("Percentage", labels = scales::percent_format(), expand = c(0,0))+
+  StaFill
+#
+##KW test
+kruskal.test(as.numeric(Final_Stage) ~ Site, data = All_oysters_clean)
+pairwise.wilcox.test(as.numeric(All_oysters_clean$Final_Stage), All_oysters_clean$Site, p.adjust.method = "BH")
+#
+#
+#
+#Group by Month and Site to compare among months and sites
+(Monthly_mean_counts_All_Sites <- All_oysters_clean %>%
+    group_by(Month, Site, Final_Stage) %>% 
+    count() %>% #ungroup() %>%
+    summarize(meanCount = mean(n),
+              minCount = min(n),
+              maxCount = max(n)) %>%
+    pivot_wider(id_cols = c("Month", "Site"),
+                names_from = Final_Stage,
+                values_from = c("meanCount", "minCount", "maxCount"), 
+                names_glue = "{Final_Stage}_{.value}") %>%
+    arrange(Site))
+#  
+All_oysters_clean %>% group_by(Month, Site) %>% 
+  ggplot(aes(Month, fill = Final_Stage))+
+  geom_bar(position = "fill")+
+  lemon::facet_rep_wrap(.~Site)+
+  scale_y_continuous("Percentage", labels = scales::percent_format(), expand = c(0,0))+
+  StaFill
+#
+All_oysters_clean %>% group_by(Month) %>% 
+  group_by(Month, Final_Stage) %>% 
+  count() %>% #ungroup() %>%
+  summarize(medianCount = median(n)) 
