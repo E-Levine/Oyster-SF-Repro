@@ -38,7 +38,7 @@ Repro_df <- Repro %>% drop_na(Parasite) %>%
                                                   ifelse(Stage_Old > 6 & Stage_Old < 10, 4, NA)))))) %>%
   mutate(Final_Stage = as.factor(ifelse(!is.na(SH) & Parasite == "Buceph" & is.na(Comb_Stage), 8, 
                               ifelse(Male_Female == "Yes", "M/F", 
-                                     ifelse(Bad_Slide == "No" & is.na(Stage) & is.na(Stage_Old), "Z", Comb_Stage)))))
+                                     ifelse(Bad_Slide == "No" & is.na(Stage) & is.na(Stage_Old), "0", Comb_Stage)))))
 #
 summary(Repro_df)
 #
@@ -59,8 +59,30 @@ All_oysters <- rbind(SL_oysters, LX_oysters, LW_oysters, CR_oysters)
 write_xlsx(All_oysters, "Output/Repro_data_2023 12_cleaned_final.xlsx", format_headers = TRUE)
 #
 #
+Stages <- c("0" = "Immature", "1" = "Developing", "2" = "Ripe/Spawning", "3" = "Spent/Recycling", "4" = "Indifferent", "8" = "Buceph", "M/F" = "Herm")
+cbPalette <- c("#333333", "#D55E00", "#E69F00", "#F0E442", "#009E73", "#56B4E9", "#9966FF")
+names(cbPalette) <- levels(Repro_df$Final_Stage)
+StaFill <- scale_fill_manual(name = "Stage", labels = Stages, values = cbPalette, na.value = "#999999")
+
 #
 #
 ####Overall annual pattern####
 #
 ##Working with all_oysters
+#Group by Month to compare among months 
+(Monthly_mean_counts_All <- All_oysters %>% filter(Final_Stage != "M/F" & Final_Stage != "8") %>%
+  group_by(Month, Final_Stage) %>% 
+  count() %>% #ungroup() %>%
+  summarize(meanCount = mean(n),
+            minCount = min(n),
+            maxCount = max(n)) %>%
+  pivot_wider(id_cols = Month,
+              names_from = Final_Stage,
+              values_from = c("meanCount", "minCount", "maxCount"), 
+              names_glue = "{Final_Stage}_{.value}"))
+  
+All_oysters %>% group_by(Month) %>% filter(Final_Stage != "M/F" & Final_Stage != "8") %>%
+  ggplot(aes(Month, fill = Final_Stage))+
+  geom_bar(position = "fill")+
+  scale_y_continuous("Percentage", labels = scales::percent_format(), expand = c(0,0))+
+  StaFill
