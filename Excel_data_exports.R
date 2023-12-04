@@ -29,26 +29,24 @@ writeData(summary, "Data_Prelim", Perna_output, startCol = "A", startRow = 1, ro
 ####Repro data analyses_summaries####
 #
 wb <- loadWorkbook("../Output/Repro_summary_info.xlsx") #For loading and updating a file
-addWorksheet(wb, "Sizes")
+addWorksheet(wb, "All Data")
 #
 ##Header then data
-writeData(wb, "Sizes", as.character("Overall size summary"), startCol = "A", startRow = 2, rowNames = F)
-writeData(wb, "Sizes", Overall_SH, startCol = "A", startRow = 3, rowNames = F, borders = "surrounding", 
+writeData(wb, "All Data", as.character("Overall Monthly Counts"), startCol = "A", startRow = 2, rowNames = F)
+writeData(wb, "All Data", Monthly_mean_counts_All, startCol = "A", startRow = 3, rowNames = F, borders = "surrounding", 
+          headerStyle = hsl, keepNA = F)
+#
+writeData(wb, "All Data", as.character("Monthly Counts by Site"), startCol = "A", startRow = 17, rowNames = F)
+writeData(wb, "All Data", Monthly_mean_counts_All_Sites, startCol = "A", startRow = 18, rowNames = F, borders = "surrounding", 
+          headerStyle = hsl, keepNA = F)
+#
+writeData(wb, "All Data", as.character("Overall Monthly Chi-squared"), startCol = "S", startRow = 3, rowNames = F)
+writeData(wb, "All Data", tidy(All_test), startCol = "S", startRow = 4, rowNames = F, borders = "surrounding", 
+          headerStyle = hsl, keepNA = T)
+writeData(wb, "All Data", All_test_pvalues, startCol = "S", startRow = 6, rowNames = F, borders = "surrounding", 
           headerStyle = hsl, keepNA = T)
 #
-writeData(wb, "Sizes", as.character("Overall size summary by site"), startCol = "A", startRow = 7, rowNames = F)
-writeData(wb, "Sizes", Site_SH, startCol = "A", startRow = 8, rowNames = F, borders = "surrounding", 
-          headerStyle = hsl, keepNA = T)
-#
-writeData(wb, "Sizes", as.character("Annual size summary all sites"), startCol = "M", startRow = 2, rowNames = F)
-writeData(wb, "Sizes", Annual_SH, startCol = "M", startRow = 3, rowNames = F, borders = "surrounding", 
-          headerStyle = hsl, keepNA = T)
-#
-writeData(wb, "Sizes", as.character("Annual size summary by site"), startCol = "A", startRow = 17, rowNames = F)
-writeData(wb, "Sizes", Crossed_SH, startCol = "A", startRow = 18, rowNames = F, borders = "surrounding", 
-          headerStyle = hsl, keepNA = T)
-#
-addStyle(wb, "Sizes", style = createStyle(valign = "center", halign = "center"), cols = 1:49, rows = 1:90, gridExpand = TRUE, stack = TRUE)
-addStyle(wb, "Sizes", style = info, cols = c("A", "A", "A", "M"), rows = c(2, 7, 17, 2))
+addStyle(wb, "All Data", style = createStyle(valign = "center", halign = "center"), cols = 1:49, rows = 1:90, gridExpand = TRUE, stack = TRUE)
+addStyle(wb, "All Data", style = info, cols = c("A", "A", "S"), rows = c(2, 17, 3))
 #
 saveWorkbook(wb, "Output/Repro_summary_info.xlsx", overwrite = T)
