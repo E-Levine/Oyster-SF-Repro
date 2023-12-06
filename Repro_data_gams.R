@@ -9,7 +9,7 @@ pacman::p_load(plyr, tidyverse, #Df manipulation,
                readxl, writexl, #Reading excel files
                car, #Basic analyses
                lmPerm, lme4, 
-               lattice, ggpubr, #Plots, Arranging ggplots
+               mgcv, ggpubr, #Plots, Arranging ggplots
                install = TRUE)
 #
 #
@@ -105,7 +105,7 @@ ggsave(path = "Output/Figures/", filename = "Proportions_stages_overview.tiff", 
                             summarise(Total = n())) %>%
     mutate(Prop = Count/Total)) 
 #
-#Raw vs standarized
+#Raw vs standardized
 ggarrange(
   Repro_props %>%
     ggplot(aes(Year, Prop, fill = Final_Stage))+
@@ -131,3 +131,48 @@ ggarrange(Repro_props_annual %>%
             geom_col(position = "fill"))
 ##Weird break due to misclassifcation of Old 7 in New 3. Old 7 should be in New 2.
 ##Corrected and new data output. Using corrected data moving forward.
+###Q1: Overall annual and month pattern for south Florida####
+#
+#Proportions vary naturally and stages have different trends so need to distinguish between stages
+Props_annual <- Repro_props %>% dplyr::select(-Count, -Total, -Month, -Estuary, -Site) %>% group_by(Year, Final_Stage) %>%
+  mutate(Year = as.numeric(Year)) %>%
+  summarise(meanProp = mean(Prop, na.rm = T)) %>%
+  spread(Final_Stage, meanProp)
+Props_19 <- as.vector(as.matrix(Props_annual[,2:8]))
+Stages <- c("0", "1", "2", "3", "4", "8", "M/F")
+ID19 <- factor(rep(Stages, each = length(Props_annual$Year), levels = Stages))
+Year19 <- rep(Props_annual$Year, 7)
+Stage0 <- as.numeric(ID19 == "0")
+Stage1 <- as.numeric(ID19 == "1")
+Stage2 <- as.numeric(ID19 == "2")
+Stage3 <- as.numeric(ID19 == "3")
+Stage4 <- as.numeric(ID19 == "4")
+Stage8 <- as.numeric(ID19 == "8")
+StageMF <- as.numeric(ID19 == "M/F")
+#
+M0 <- gamm(Props_19 ~ ID19 + s(Year19, by = Stage0, bs = "tp") + s(Year19, by = Stage1, bs = "tp") +
+             s(Year19, by = Stage2, bs = "tp") + s(Year19, by = Stage3, bs = "tp") + s(Year19, by = Stage4, bs = "tp") +
+             s(Year19, by = Stage8, bs = "tp") + s(Year19, by = StageMF, bs = "tp"),
+           method = "REML", weights = varIdent(form = ~1 | ID19))
+#
+#
+#
+##
+##
+Props_annual <- Repro_props %>% ungroup() %>% dplyr::select(-Count, -Total, -Month, -Estuary, -Site) %>%
+  mutate(Year = as.integer(Year)) %>% complete(Year, Final_Stage)
+#
+gam1 <- gam(Prop ~ Year + Final_Stage, data = Props_annual, method = "REML", family = "quasibinomial")
+summary(gam1) #R2=0.244, dev 23.7
+par(mfrow = c(1,2))
+plot(gam1, all.terms = TRUE)
+
+gam2 <- gam(Prop ~ s(Year) + Final_Stage, data = Props_annual, method = "REML", family = "quasibinomial")
+summary(gam2) #R2=0.008, dev 24
+plot(gam2, all.terms = TRUE)
+
+gam3 <- gam(Prop ~ s(Year, by = Final_Stage), data = Props_annual, method = "REML", family = "quasibinomial")
+summary(gam3) #R2=0.124, dev 10
+par(mfrow = c(3,3))
+plot(gam3, all.terms = TRUE)
+#
