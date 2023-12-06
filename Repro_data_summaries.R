@@ -37,14 +37,14 @@ Repro_df <- Repro %>% drop_na(Parasite) %>%
                                            ifelse(Stage_Old > 4 & Stage_Old < 7, 3, 
                                                   ifelse(Stage_Old > 6 & Stage_Old < 10, 4, NA)))))) %>%
   mutate(Final_Stage = as.factor(ifelse(!is.na(SH) & Parasite == "Buceph" & is.na(Comb_Stage), 8, 
-                              ifelse(Male_Female == "Yes", "M/F", 
-                                     ifelse(Bad_Slide == "No" & is.na(Stage) & is.na(Stage_Old), "0", Comb_Stage)))))
+                                        ifelse(Male_Female == "Yes", "M/F", 
+                                               ifelse(Bad_Slide == "No" & is.na(Stage) & is.na(Stage_Old), "0", Comb_Stage)))))
 #
 summary(Repro_df)
 #
 Data_checks <- Repro_df %>% filter(is.na(Final_Stage) & Bad_Slide != "Yes") #Dont' want any rows of data
-  #rbind(Repro_df %>% filter(Sex == "M" & is.na(Final_Stage)), #Anything Bad_Slide = Yes should be NA
-  #      Repro_df %>% filter(Sex == "F" & is.na(Final_Stage)))
+#rbind(Repro_df %>% filter(Sex == "M" & is.na(Final_Stage)), #Anything Bad_Slide = Yes should be NA
+#      Repro_df %>% filter(Sex == "F" & is.na(Final_Stage)))
 #
 ##Write output of cleaned data
 write_xlsx(Repro_df, "Output/Repro_data_2023 12_cleaned.xlsx", format_headers = TRUE)
@@ -71,15 +71,15 @@ StaFill <- scale_fill_manual(name = "Stage", labels = Stages, values = cbPalette
 All_oysters_clean <- All_oysters %>% subset(Final_Stage != "M/F" & Final_Stage != "8") %>% droplevels()
 #Group by Month to compare among months 
 (Monthly_mean_counts_All <- All_oysters_clean %>% 
-  group_by(Month, Final_Stage) %>% 
+    group_by(Month, Final_Stage) %>% 
     count() %>%
-  summarize(meanCount = mean(n),
-            minCount = min(n),
-            maxCount = max(n)) %>%
-  pivot_wider(id_cols = Month,
-              names_from = Final_Stage,
-              values_from = c("meanCount", "minCount", "maxCount"), 
-              names_glue = "{Final_Stage}_{.value}"))
+    summarize(meanCount = mean(n),
+              minCount = min(n),
+              maxCount = max(n)) %>%
+    pivot_wider(id_cols = Month,
+                names_from = Final_Stage,
+                values_from = c("meanCount", "minCount", "maxCount"), 
+                names_glue = "{Final_Stage}_{.value}"))
 #  
 All_oysters_clean %>% group_by(Month) %>% 
   ggplot(aes(Month, fill = Final_Stage))+
@@ -109,7 +109,7 @@ pairwise.wilcox.test(as.numeric(All_oysters_clean$Final_Stage), All_oysters_clea
                 names_glue = "{Final_Stage}_{.value}"))
 #
 All_oysters_clean %>% group_by(Site) %>% 
-ggplot(aes(Site, fill = Final_Stage))+
+  ggplot(aes(Site, fill = Final_Stage))+
   geom_bar(position = "fill")+
   scale_y_continuous("Percentage", labels = scales::percent_format(), expand = c(0,0))+
   StaFill
