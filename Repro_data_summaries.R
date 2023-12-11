@@ -15,7 +15,7 @@ pacman::p_load(plyr, tidyverse, #Df manipulation,
 #
 #
 #
-####Load raw data, clean, create dataframes for analyes####
+####Repro-Load raw data, clean, create data frames for analyses####
 #
 Repro <- read_excel("../../Data/Repro_staging.xlsx", sheet = "Raw data", #File name and sheet name
                     skip = 0, col_names = TRUE, 
@@ -46,7 +46,7 @@ Repro_df <- Repro %>% drop_na(Parasite) %>%
          Buceph = as.factor(ifelse(Parasite == "Buceph", "Y", "N"))) %>%
   dplyr::select(-Site2)
 #
-temp <- Repro %>% filter(is.na(Stage) & Male_Female == "No" & is.na(Stage_Old) & Parasite != "Buceph" & Bad_Slide == "No")
+temp <- Repro %>% filter(Sex == "Z" & Stage == 4 & SH < 35) 
 #
 #
 summary(Repro_df)
@@ -70,6 +70,36 @@ Data_checks <- Repro_df %>% filter(is.na(Final_Stage) & Bad_Slide != "Yes") #Don
 #write_xlsx(Repro_props, "Output/Repro_proportions_2023 12 06.xlsx", format_headers = TRUE)
 #
 summary(Repro_props)
+#
+#
+####Rcrt-load raw data, clean, create data frames####
+#
+Rcrt <- read_excel("../../Data/RCRT_Station_means_sd_2005_11_2023.xlsx", sheet = "Sheet1", #File name and sheet name
+                   col_types = c("date", "numeric", "numeric", "text","text", "numeric", "numeric"),
+                   na = c("", "Z", "."), trim_ws = TRUE, #Values/placeholders for NAs; trim extra white space?
+                   .name_repair = "universal")
+#
+head(Rcrt)
+#
+##Data frame of all possible years and months for each site - complete by station to make sure date ranges are correct
+(Rcrt_df <- rbind(Rcrt %>% subset(Site == "CR-E") %>% complete(Year, Month, Site, Station),
+                  Rcrt %>% subset(Site == "CR-W") %>% complete(Year, Month, Site, Station),
+                  Rcrt %>% subset(Site == "LW") %>% complete(Year, Month, Site, Station),
+                  Rcrt %>% subset(Site == "LX-N") %>% complete(Year, Month, Site, Station),
+                  Rcrt %>% subset(Site == "LX-S") %>% complete(Year, Month, Site, Station),
+                  Rcrt %>% subset(Site == "SL-C") %>% complete(Year, Month, Site, Station),
+                  Rcrt %>% subset(Site == "SL-N") %>% complete(Year, Month, Site, Station),
+                  Rcrt %>% subset(Site == "SL-S") %>% complete(Year, Month, Site, Station)) %>%
+    mutate(MonYr = paste(Month, Year, sep = "-")))
+#
+Rcrt_df %>%
+  ggplot(aes(MonYr, Mean, color = Station))+
+  geom_point()+
+  facet_wrap(Site~.)+
+  theme_classic()
+#
+##Write output of cleaned data
+#write_xlsx(Rcrt_df, "Output/Rcrt_data_2023 12_cleaned.xlsx", format_headers = TRUE)
 #
 #
 ####Formatting and helpers####
