@@ -25,15 +25,17 @@ Repro <- read_excel("../../Data/Repro_staging.xlsx", sheet = "Raw data", #File n
 head(Repro)
 #
 Repro_df <- Repro %>% drop_na(Parasite) %>%
-  mutate_at(c("Site2", "Year", "Month", "Sex"), as.factor)  %>%
-  mutate(Site = as.factor(ifelse(grepl("CR", Site2) & Station == "1", "CR-E", 
-                                 ifelse(grepl("CR", Site2) & Station == "2", "CR-E", 
-                                        ifelse(grepl("CR", Site2) & Station == "3",  "CR-W",
-                                               ifelse(grepl("CR", Site2) & Station == "4", "CR-W", Repro$Site2)))))) %>%
+  mutate_at(c("Year", "Month", "Sex"), as.factor)  %>%
+  mutate(Site = as.factor(case_when(grepl("CR", Site2) & Station == "1" ~ "CR-E", 
+                                    grepl("CR", Site2) & Station == "2" ~ "CR-E",
+                                    grepl("CR", Site2) & Station == "3" ~ "CR-W",
+                                    grepl("CR", Site2) & Station == "4" ~ "CR-W",
+                                    TRUE ~ Site2))) %>%
   mutate(Estuary = as.factor(ifelse(grepl("SL", Site), "SL", 
                                     ifelse(grepl("LX", Site), "LX",
                                            ifelse(grepl("CR", Site), "CR",
-                                                  ifelse(grepl("LW", Site), "LW", NA))))),
+                                                  ifelse(grepl("LW", Site), "LW", 
+                                                         ifelse(grepl("TB", Site), "TB", NA)))))),
          Month = factor(Month, levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"))) %>%
   mutate(Comb_Stage = ifelse(!is.na(Stage), Stage, 
                              ifelse(Stage_Old == 0 | Stage_Old == 10, 4, 
@@ -46,8 +48,8 @@ Repro_df <- Repro %>% drop_na(Parasite) %>%
          Buceph = as.factor(ifelse(Parasite == "Buceph", "Y", "N"))) %>%
   dplyr::select(-Site2)
 #
-temp <- Repro %>% filter(Sex == "Z" & Stage == 4 & SH < 35) 
-#
+#temp <- Repro %>% filter(Sex == "Z" & Stage == 4 & SH < 35) 
+#temp <- Repro_df %>% mutate(Check = ifelse(Site == Site2, "Y", "N")) %>% filter(Check == "N")
 #
 summary(Repro_df)
 #
@@ -56,7 +58,7 @@ Data_checks <- Repro_df %>% filter(is.na(Final_Stage) & Bad_Slide != "Yes") #Don
   #      Repro_df %>% filter(Sex == "F" & is.na(Final_Stage)))
 #
 ##Write output of cleaned data
-#write_xlsx(Repro_df, "Output/Repro_data_2023 12 06_cleaned.xlsx", format_headers = TRUE)
+#write_xlsx(Repro_df, "Output/Repro_data_2023 12_cleaned.xlsx", format_headers = TRUE)
 #
 #
 ##Calculate proportion per stage
