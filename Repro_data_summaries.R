@@ -92,7 +92,7 @@ head(Rcrt)
                   Rcrt %>% subset(Site == "SL-C") %>% complete(Year, Month, Site, Station),
                   Rcrt %>% subset(Site == "SL-N") %>% complete(Year, Month, Site, Station),
                   Rcrt %>% subset(Site == "SL-S") %>% complete(Year, Month, Site, Station)) %>%
-    mutate(MonYr = paste(Month, Year, sep = "-")))
+    mutate(MonYr = paste(Year, Month, "01", sep = "-")))
 #
 Rcrt_df %>%
   ggplot(aes(MonYr, Mean, color = Station))+
