@@ -38,10 +38,11 @@ Repro_df <- Repro %>% drop_na(Parasite) %>%
                                                          ifelse(grepl("TB", Site), "TB", NA)))))),
          Month = factor(Month, levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"))) %>%
   mutate(Comb_Stage = ifelse(!is.na(Stage), Stage, 
-                             ifelse(Stage_Old == 0 | Stage_Old == 10, 4, 
-                                    ifelse(Stage_Old > 0 & Stage_Old < 5, 1, 
-                                           ifelse(Stage_Old > 4 & Stage_Old < 8, 2, 
-                                                  ifelse(Stage_Old > 7 & Stage_Old < 10, 3, NA)))))) %>%
+                             ifelse(Stage_Old == 0, 0,
+                                    ifelse(Stage_Old == 10, 4,
+                                           ifelse(Stage_Old > 0 & Stage_Old < 5, 1, 
+                                                  ifelse(Stage_Old > 4 & Stage_Old < 8, 2, 
+                                                         ifelse(Stage_Old > 7 & Stage_Old < 10, 3, NA))))))) %>%
   mutate(Final_Stage = as.factor(ifelse(!is.na(SH) & Parasite == "Buceph" & is.na(Comb_Stage), 8, 
                                         ifelse(Male_Female == "Yes", "M/F", 
                                                ifelse(Bad_Slide == "No" & is.na(Stage) & is.na(Stage_Old), "0", Comb_Stage)))),
