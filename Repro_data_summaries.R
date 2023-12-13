@@ -30,14 +30,15 @@ Repro_df <- Repro %>% drop_na(Parasite) %>%
                                     grepl("CR", Site2) & Station == "2" ~ "CR-E",
                                     grepl("CR", Site2) & Station == "3" ~ "CR-W",
                                     grepl("CR", Site2) & Station == "4" ~ "CR-W",
-                                    TRUE ~ Site2))) %>%
+                                    TRUE ~ Site2)),
+         Stage_new = Stage) %>%
   mutate(Estuary = as.factor(ifelse(grepl("SL", Site), "SL", 
                                     ifelse(grepl("LX", Site), "LX",
                                            ifelse(grepl("CR", Site), "CR",
                                                   ifelse(grepl("LW", Site), "LW", 
                                                          ifelse(grepl("TB", Site), "TB", NA)))))),
          Month = factor(Month, levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"))) %>%
-  mutate(Comb_Stage = ifelse(!is.na(Stage), Stage, 
+  mutate(Comb_Stage = ifelse(!is.na(Stage_new), Stage_new, 
                              ifelse(Stage_Old == 0, 0,
                                     ifelse(Stage_Old == 10, 4,
                                            ifelse(Stage_Old > 0 & Stage_Old < 5, 1, 
@@ -47,7 +48,7 @@ Repro_df <- Repro %>% drop_na(Parasite) %>%
                                         ifelse(Male_Female == "Yes", "M/F", 
                                                ifelse(Bad_Slide == "No" & is.na(Stage) & is.na(Stage_Old), "0", Comb_Stage)))),
          Buceph = as.factor(ifelse(Parasite == "Buceph", "Y", "N"))) %>%
-  dplyr::select(-Site2)
+  dplyr::select(-Site2, Stage_new)
 #
 #temp <- Repro %>% filter(Sex == "Z" & Stage == 4 & SH < 35) 
 #temp <- Repro_df %>% mutate(Check = ifelse(Site == Site2, "Y", "N")) %>% filter(Check == "N")
