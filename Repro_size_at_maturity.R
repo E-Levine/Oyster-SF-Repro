@@ -297,5 +297,6 @@ ReproSampling <- function(TargetSite, StartDate) {
 temp <- ReproSampling("LW", "2005-02-01")
 #
 ##Separate each data frame
-(LW_selected_repro <- as.data.frame(temp[1]))
-(LW_selected_dates <- as.data.frame(temp[2]))
+LW_selected_repro <- as.data.frame(temp[1])
+LW_selected_dates <- as.data.frame(temp[2])
+ 
