@@ -278,9 +278,9 @@ ReproSampling <- function(TargetSite, StartDate) {
     Station_zeros <- Station_df_i[Station_index,] #Select the first instance of each sequence of 0s
     
     #Identify next time samples were collected
-    Station_rle_n <- rle(Station_df_i$Samples > 0)
-    Station_first_n <- Station_rle_n$values > 0 & Station_rle_n$lengths > 1 
-    Station_last_index <- (cumsum(Station_rle$lengths))[Station_first_n]
+    Station_rle_n <- rle(Station_df_i$Samples == 0)
+    Station_first_n <- Station_rle_n$values == 0 & Station_rle_n$lengths >= 1 
+    Station_last_index <- ((cumsum(Station_rle_n$lengths))[Station_first_n == FALSE])+1
     Station_counts <- Station_df_i[Station_last_index,]
     
     #Filter to data for desired dates
