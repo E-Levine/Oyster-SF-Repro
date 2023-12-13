@@ -294,9 +294,20 @@ ReproSampling <- function(TargetSite, StartDate) {
   return(list(Selected_repro_data, Dates_repro_data))
 }
 #
-temp <- ReproSampling("LW", "2005-02-01")
+temp <- ReproSampling("CR-W", "2017-02-01")
 #
 ##Separate each data frame
-LW_selected_repro <- as.data.frame(temp[1])
-LW_selected_dates <- as.data.frame(temp[2])
- 
+CRW_selected_repro <- as.data.frame(temp[1])
+CRW_selected_dates <- as.data.frame(temp[2])
+#
+#
+LW_selected_dates %>% 
+  ggplot(aes(MonYr, Samples, group = Station, color = as.factor(Samples)))+
+  geom_point(size = 3)+
+  theme_classic()
+#Determine how many are active each month of resuming collections
+(test <- LW_selected_repro %>% 
+  mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 0 & as.integer(Final_Stage) < 4, "Y", "N"))) %>% #add class for reproductivly active or unknown
+  group_by(MonYr, Site, Station, Active) %>% summarise(Count = n()))
+#
+#Histogram plot of blank spaces for no collections then Y/N fill of activity until all active again. Ave sizes corresponding to activity changes. 
