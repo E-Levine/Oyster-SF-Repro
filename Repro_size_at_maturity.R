@@ -252,20 +252,25 @@ Repro_full <- rbind(Repro_df %>% filter(Estuary != "CR" & Estuary != "TB") %>% d
   mutate_at(c("Year", "Month"), as.integer) %>%
   group_by(Year, Month, MonYr, Site, Station) %>% summarise(Samples = sum(!is.na(SH))))
 #
+
 #
 ##Function to determine all months without samples, and next time samples were collected (by station):
 #StartDate of project: YYYY-MM-01
-#output[1]: Repro data
+#output[1]: Site activity
+#output[2]: Repro data
 #output[2]: repro data dates
+#Requires: Repro_samples, Repro_full
 ReproSampling <- function(TargetSite, StartDate) {
   #
   #Create data frame for final selected data and dates/number of samples
   Selected_repro_data <- data.frame()
   Dates_repro_data <- data.frame()
   
-  #Filter data for site
+  #Filter data for site (Site_repro) and determine number reproductively active each month (Site_active)
   Site_repro <-  Repro_samples %>% filter(Site == TargetSite, MonYr >= as.Date(paste(StartDate)))
-  
+  Site_active <- Repro_full %>% filter(Site == TargetSite, MonYr >= as.Date(paste(StartDate))) %>%
+    mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 0 & as.integer(Final_Stage) < 4, "Y", "N"))) %>% 
+    group_by(MonYr, Site, Station, Active) %>% summarise(Count = n()) %>% drop_na(Active) 
   #Determine number of stations for the desired site
   Stations <- unique(Site_repro$Station)
   
@@ -291,14 +296,15 @@ ReproSampling <- function(TargetSite, StartDate) {
     Selected_repro_data <- rbind(Selected_repro_data, Station_repro_data_i)
     Dates_repro_data <- rbind(Dates_repro_data, Station_zeros, Station_counts)
   }
-  return(list(Selected_repro_data, Dates_repro_data))
+  return(list(Site_active, Selected_repro_data, Dates_repro_data))
 }
 #
-temp <- ReproSampling("CR-W", "2017-02-01")
+temp <- ReproSampling("LW", "2005-02-01")
 #
 ##Separate each data frame
-CRW_selected_repro <- as.data.frame(temp[1])
-CRW_selected_dates <- as.data.frame(temp[2])
+LW_activity <- as.data.frame(temp[1])
+CRW_selected_repro <- as.data.frame(temp[2])
+CRW_selected_dates <- as.data.frame(temp[3])
 #
 #
 LW_selected_dates %>% 
@@ -307,7 +313,10 @@ LW_selected_dates %>%
   theme_classic()
 #Determine how many are active each month of resuming collections
 (test <- LW_selected_repro %>% 
-  mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 0 & as.integer(Final_Stage) < 4, "Y", "N"))) %>% #add class for reproductivly active or unknown
+  mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 0 & as.integer(Final_Stage) < 4, "Y", "N"))) %>% #add class for reproductively active or unknown
   group_by(MonYr, Site, Station, Active) %>% summarise(Count = n()))
 #
 #Histogram plot of blank spaces for no collections then Y/N fill of activity until all active again. Ave sizes corresponding to activity changes. 
+LW_activity %>%
+  ggplot(aes(MonYr, fill = Active))+
+  geom_histogram(aes(y = after_stat(count)))
