@@ -285,6 +285,9 @@ ReproSampling <- function(TargetSite, StartDate) {
                 group_by(MonYr, Site, Active) %>% summarise(meanSH = mean(SH, na.rm = T), sdSH = sd(SH, na.rm = T), minSH = min(SH, na.rm = T), maxSH = max(SH, na.rm = T)))
   
   #Determine number of stations for the desired site and all dates of study
+  Site_active <- Repro_full %>% filter(Site == TargetSite, MonYr >= as.Date(paste(StartDate))) %>%
+    mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 0 & as.integer(Final_Stage) < 4, "Y", "N"))) %>% 
+    group_by(MonYr, Site, Station, Active) %>% summarise(Count = n()) %>% drop_na(Active) 
   Stations <- unique(Site_repro$Station)
   #Loop over data to determine 0s and samples for each station
   for (i in Stations) {
@@ -318,7 +321,6 @@ SLS_activity <- as.data.frame(temp[1])
 SLS_activity_summary <- as.data.frame(temp[2])
 SLS_selected_repro <- as.data.frame(temp[3])
 SLS_selected_dates <- as.data.frame(temp[4])
-#
 #
 SLC_selected_dates %>% 
   ggplot(aes(MonYr, Samples, group = Station, color = as.factor(Samples)))+
