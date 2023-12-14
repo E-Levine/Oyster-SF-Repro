@@ -231,7 +231,7 @@ matureSL(Maturity, 0.5, 1, NA)
 #
 Maturity %>%
   ggplot(aes(SH, fill = Mature))+
-  geom_histogram(position = "fill")
+  geom_histogram(position = "fill")+
   #scale_x_binned(expand = c(0,0))+
   #scale_y_continuous(expand = c(0,0))+
   theme_classic()
@@ -247,28 +247,45 @@ Repro_full <- rbind(Repro_df %>% filter(Estuary != "CR" & Estuary != "TB") %>% d
                          filter(!(Site == "CR-E" & Station == "3") & !(Site == "CR-E" & Station == "4") & !(Site == "CR-W" & Station == "1") &
                                   !(Site == "CR-W" & Station == "2"))) %>% 
   mutate(MonYr = as.Date(paste(Year, Month, "01", sep = "-")), format = "%Y-%m-%d") 
-##Data frame of number of samples per Month/Year
+##Data frame of number of samples per Month/Year - includes Buceph
 (Repro_samples <- Repro_full %>%
   mutate_at(c("Year", "Month"), as.integer) %>%
   group_by(Year, Month, MonYr, Site, Station) %>% summarise(Samples = sum(!is.na(SH))))
+#Excludes Buceph
+(Repro_samples_noB <- Repro_full %>% filter(Buceph == "N") %>%
+    mutate_at(c("Year", "Month"), as.integer) %>%
+    group_by(Year, Month, MonYr, Site, Station) %>% summarise(Samples = sum(!is.na(SH))))
 #
+
 #
 ##Function to determine all months without samples, and next time samples were collected (by station):
 #StartDate of project: YYYY-MM-01
-#output[1]: Repro data
+#output[1]: Site activity
+#output[2]: Repro data
 #output[2]: repro data dates
+#Requires: Repro_samples, Repro_full, Repro_samples_noB
 ReproSampling <- function(TargetSite, StartDate) {
   #
   #Create data frame for final selected data and dates/number of samples
   Selected_repro_data <- data.frame()
   Dates_repro_data <- data.frame()
   
-  #Filter data for site
+  #Filter data for site (Site_repro) and determine number reproductively active each month (Site_active)
   Site_repro <-  Repro_samples %>% filter(Site == TargetSite, MonYr >= as.Date(paste(StartDate)))
+  Site_active <- Repro_full %>% filter(Site == TargetSite, MonYr >= as.Date(paste(StartDate)) & Final_Stage != 8) %>%
+    #NOTE: When converting Final_Stage to integer, each value is 1 higher due to the "0" stage factor level (0 factor = 1 integer, 1=2, etc.)
+    mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 1 & as.integer(Final_Stage) < 5, "Y", "N"))) %>% 
+    group_by(MonYr, Site, Station, Active) %>% summarise(Count = n()) #%>% drop_na(Active) 
+  #Summarize counts of active or not active, percent of montly sample, and average SH of each class
+  Site_active_summ <- left_join(Site_active %>% group_by(MonYr, Site, Active) %>% summarise(Count = sum(Count)),
+                                Repro_samples_noB %>% group_by(Site, MonYr) %>% summarise(Total = sum(Samples))) %>%
+    mutate(Pct = (Count/Total)*100) %>% #Adding percent of sample
+    left_join(Repro_full %>% filter(Site == TargetSite & Buceph == "N") %>% 
+                mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 1 & as.integer(Final_Stage) < 5, "Y", "N"))) %>%
+                group_by(MonYr, Site, Active) %>% summarise(meanSH = mean(SH, na.rm = T), sdSH = sd(SH, na.rm = T), minSH = min(SH, na.rm = T), maxSH = max(SH, na.rm = T)))
   
-  #Determine number of stations for the desired site
+  #Determine number of stations for the desired site and all dates of study
   Stations <- unique(Site_repro$Station)
-  
   #Loop over data to determine 0s and samples for each station
   for (i in Stations) {
     Station_df_i <- filter(Site_repro, Station == i)
@@ -291,23 +308,46 @@ ReproSampling <- function(TargetSite, StartDate) {
     Selected_repro_data <- rbind(Selected_repro_data, Station_repro_data_i)
     Dates_repro_data <- rbind(Dates_repro_data, Station_zeros, Station_counts)
   }
-  return(list(Selected_repro_data, Dates_repro_data))
+  return(list(Site_active, Site_active_summ, Selected_repro_data, Dates_repro_data))
 }
 #
-temp <- ReproSampling("CR-W", "2017-02-01")
+temp <- ReproSampling("SL-S", "2005-02-01")
 #
 ##Separate each data frame
-CRW_selected_repro <- as.data.frame(temp[1])
-CRW_selected_dates <- as.data.frame(temp[2])
+SLS_activity <- as.data.frame(temp[1])
+SLS_activity_summary <- as.data.frame(temp[2])
+SLS_selected_repro <- as.data.frame(temp[3])
+SLS_selected_dates <- as.data.frame(temp[4])
 #
 #
-LW_selected_dates %>% 
+SLC_selected_dates %>% 
   ggplot(aes(MonYr, Samples, group = Station, color = as.factor(Samples)))+
   geom_point(size = 3)+
   theme_classic()
-#Determine how many are active each month of resuming collections
-(test <- LW_selected_repro %>% 
-  mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 0 & as.integer(Final_Stage) < 4, "Y", "N"))) %>% #add class for reproductivly active or unknown
-  group_by(MonYr, Site, Station, Active) %>% summarise(Count = n()))
-#
 #Histogram plot of blank spaces for no collections then Y/N fill of activity until all active again. Ave sizes corresponding to activity changes. 
+SLC_activity %>% 
+  ggplot(aes(MonYr, group = Active, fill = Active))+
+  #geom_histogram(aes(y = after_stat(count)))
+  geom_bar(position = "fill")
+  #lemon::facet_rep_grid(Station~.)
+#
+#
+#
+####Recruitment####
+#
+#Dates of interest
+LW_dates <- c("2005-09-01", "2005-10-01", "2005-11-01", "2011-05-01", "2011-06-01", "2011-07-01")
+CR_dates <- c("2017-08-01", "2017-09-01", "2017-10-01", "2017-11-01", "2017-12-01", "2018-01-01", "2018-02-01", "2018-03-01", "2018-04-01", "2018-05-01", "2018-06-01", "2018-07-01", "2022-09-01")
+LX_dates <- c("2005-09-01", "2005-10-01", "2005-11-01", "2008-05-01", "2008-06-01", "2008-07-01", "2011-05-01", "2011-06-01", "2011-07-01")
+SLC_dates <- c("2005-06-01", "2005-07-01", "2005-08-01", "2005-09-01", "2005-10-01", "2005-11-01", "2005-12-01", "2006-01-01","2006-02-01", "2006-03-01", "2006-04-01", "2006-05-01", "2008-08-01", "2008-09-01",
+               "2008-10-01", "2008-11-01", "2008-12-01", "2009-01-01", "2009-02-01", "2013-09-01", "2013-10-01", "2013-11-01", "2013-12-01", "2014-01-01", "2014-02-01", "2017-08-01", "2017-09-01",
+               "2017-10-01", "2017-11-01", "2017-12-01", "2018-01-01", "2018-02-01", "2018-03-01", "2018-04-01", "2018-05-01", "2018-06-01", "2018-07-01")
+SLN_dates <- c("2005-06-01", "2005-07-01", "2005-08-01", "2005-09-01", "2005-10-01", "2005-11-01", "2005-12-01", "2006-01-01","2006-02-01", "2006-03-01", "2006-04-01", "2006-05-01", "2006-06-01", "2006-07-01", 
+               "2006-08-01","2006-09-01", "2006-10-01", "2006-11-01", "2006-12-01", "2007-01-01", "2008-08-01", "2008-09-01", "2008-10-01", "2008-11-01", "2008-12-01", "2009-01-01", "2009-02-01", "2009-03-01", 
+               "2009-04-01", "2013-07-01", "2013-08-01", "2013-09-01", "2013-10-01", "2013-11-01", "2013-12-01", "2014-01-01", "2017-08-01", "2017-09-01",
+               "2017-10-01", "2017-11-01", "2017-12-01", "2018-01-01", "2018-02-01", "2018-03-01", "2018-04-01", "2018-05-01", "2018-06-01", "2018-07-01", "2018-08-01", "2018-09-01", "2018-10-01", "2018-11-01", "2018-12-01", "2019-01-01")
+SLS_dates <- c("2005-06-01", "2005-07-01", "2005-08-01", "2005-09-01", "2005-10-01", "2005-11-01", "2005-12-01", "2006-01-01","2006-02-01", "2006-03-01", "2006-04-01", "2006-05-01", "2006-06-01", "2006-07-01", 
+               "2006-08-01","2006-09-01", "2006-10-01", "2006-11-01", "2006-12-01", "2007-01-01", "2007-02-01", "2007-03-01", "2008-08-01", "2008-09-01", "2008-10-01", "2008-11-01", "2008-12-01", "2009-01-01", "2009-02-01", "2009-03-01", 
+               "2009-04-01", "2013-07-01", "2013-08-01", "2013-09-01", "2013-10-01", "2013-11-01", "2013-12-01", "2014-01-01", "2014-02-01", "2014-03-01", "2017-08-01", "2017-09-01",
+               "2017-10-01", "2017-11-01", "2017-12-01", "2018-01-01", "2018-02-01", "2018-03-01", "2018-04-01", "2018-05-01", "2018-06-01", "2018-07-01", "2018-08-01", "2018-09-01", "2018-10-01", "2018-11-01", "2018-12-01", "2019-01-01")
+#
