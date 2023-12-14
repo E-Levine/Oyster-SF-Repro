@@ -39,11 +39,14 @@ summary(Repro_props)
 #
 #
 ##Recruitment data
-Rcrt_df <- read_excel("Output/Rcrt_data_2023 12_cleaned.xlsx", sheet = "Sheet1", #File name and sheet name
+Rcrt_df <- read_excel("Rcrt_data_2023 12_cleaned.xlsx", sheet = "Sheet1", #File name and sheet name
                           skip = 0, col_names = TRUE, 
                           na = c(""), trim_ws = TRUE, #Values/placeholders for NAs; trim extra white space?
                           .name_repair = "universal") %>%
+  subset(Site != "TB" & Site != "LW-R") 
 head(Rcrt_df)
+Rcrt_df <-  Rcrt_df %>%
+  mutate(MonYr = as.Date(MonYr))
 #
 #
 ##Standardize to n/Year
@@ -353,3 +356,40 @@ SLS_dates <- c("2005-06-01", "2005-07-01", "2005-08-01", "2005-09-01", "2005-10-
                "2009-04-01", "2013-07-01", "2013-08-01", "2013-09-01", "2013-10-01", "2013-11-01", "2013-12-01", "2014-01-01", "2014-02-01", "2014-03-01", "2017-08-01", "2017-09-01",
                "2017-10-01", "2017-11-01", "2017-12-01", "2018-01-01", "2018-02-01", "2018-03-01", "2018-04-01", "2018-05-01", "2018-06-01", "2018-07-01", "2018-08-01", "2018-09-01", "2018-10-01", "2018-11-01", "2018-12-01", "2019-01-01")
 #
+Selected_rcrt <- rbind(
+  Rcrt_df %>% filter(Site == "LW" & MonYr %in% LW_dates),
+  Rcrt_df %>% filter(Site == "CR-E" & MonYr %in% CR_dates),
+  Rcrt_df %>% filter(Site == "CR-W" & MonYr %in% CR_dates),
+  Rcrt_df %>% filter(Site == "LX-N" & MonYr %in% LX_dates),
+  Rcrt_df %>% filter(Site == "LX-S" & MonYr %in% LX_dates),
+  Rcrt_df %>% filter(Site == "SL-C" & MonYr %in% SLC_dates),
+  Rcrt_df %>% filter(Site == "SL-S" & MonYr %in% SLS_dates),
+  Rcrt_df %>% filter(Site == "SL-N" & MonYr %in% SLN_dates)) %>%
+  group_by(MonYr, Year, Month, Site) %>%
+  summarise(Mean = mean(Mean, na.rm = T))
+#
+Selected_rcrt %>%
+  ggplot(aes(MonYr, Mean))+
+  geom_point()+
+  lemon::facet_rep_grid(Site~., scales = "free_y")+
+  theme_bw()
+#
+rbind(SLC_activity, SLS_activity, SLN_activity) %>%
+  ggplot(aes(MonYr, group = Active, fill = Active))+
+  geom_bar(position = "fill")+
+  lemon::facet_rep_grid(.~Site)+
+  theme_bw()
+##
+#
+#
+#
+Repro_full %>% group_by(Final_Stage) %>% 
+  summarise(meanSH = mean(SH, na.rm = T),
+            sdSH = sd(SH, na.rm = T),
+            min = min(SH, na.rm = T))
+WTF <- Repro_full %>% group_by(Site, Final_Stage) %>% 
+  summarise(min = min(SH, na.rm = T)) %>%
+  spread(Site, min)
+WTF_yr <- Repro_full %>% group_by(Year, Final_Stage) %>% 
+  summarise(min = min(SH, na.rm = T)) %>%
+  spread(Year, min)
