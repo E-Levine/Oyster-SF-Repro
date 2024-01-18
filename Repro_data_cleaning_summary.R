@@ -43,7 +43,7 @@ Repro_df <- Repro %>% drop_na(Parasite) %>%
          Month = factor(Month, levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"))) %>%
   #Convert old to new staging
   mutate(Comb_Stage = ifelse(!is.na(Stage_new), Stage_new, 
-                             ifelse(Stage_Old == 0, 0,
+                             ifelse(Stage_Old == 0, 4,
                                     ifelse(Stage_Old == 10, 4,
                                            ifelse(Stage_Old > 0 & Stage_Old < 5, 1, 
                                                   ifelse(Stage_Old > 4 & Stage_Old < 8, 2, 
@@ -114,8 +114,8 @@ Rcrt_df %>%
 ####Formatting and helpers####
 #
 #Map color to Stage
-Stages <- c("0" = "Immature", "1" = "Developing", "2" = "Ripe/Spawning", "3" = "Spent/Recycling", "4" = "Indifferent", "8" = "Buceph", "M/F" = "Herm")
-cbPalette <- c("#333333", "#D55E00", "#E69F00", "#F0E442", "#009E73", "#56B4E9", "#9966FF")
+Stages <- c("1" = "Developing", "2" = "Ripe/Spawning", "3" = "Spent/Recycling", "4" = "Indifferent", "8" = "Buceph", "M/F" = "Herm")
+cbPalette <- c("#D55E00", "#E69F00", "#F0E442", "#009E73", "#56B4E9", "#9966FF")
 names(cbPalette) <- levels(Repro_df$Final_Stage)
 StaFill <- scale_fill_manual(name = "Stage", labels = Stages, values = cbPalette, na.value = "#999999")
 #
