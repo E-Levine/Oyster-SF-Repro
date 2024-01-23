@@ -86,6 +86,13 @@ All_oysters_clean %>% group_by(Month) %>%
 #
 #
 #
+####glm - Year, Month v Stage####
+#
+
+#
+#
+#
+#
 ####WORKING####
 ##Ordinal logistic regression - ordinal
 All_1 <- clm(Final_Stage ~ Year + Month, data = All_oysters_clean, Hess = TRUE)
