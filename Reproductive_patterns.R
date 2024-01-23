@@ -86,22 +86,21 @@ All_oysters_clean %>% group_by(Month) %>%
 #
 #
 #
-####glm - Year, Month v Stage####
+####glm - Counts - Year, Month v Stage####
 #
 (Overall_counts <- left_join(All_oysters_clean %>% group_by(Year, Month, Final_Stage) %>% summarise(Count= n()),
                             All_oysters_clean %>% group_by(Year, Month) %>% summarise(Total= n())) %>% 
-  mutate(Year = as.numeric(Year),
+  mutate(Year = as.numeric(paste(Year)),
          Prop = Count/Total) %>% ungroup() %>% complete(Final_Stage, nesting(Year, Month), fill = list(Count = 0, Total = 0, Prop = 0)))
 #
 ##Check response
-hist(Overall_counts$Count)
+hist(Overall_counts$Count, breaks = 42)
 #
 ##Fit model
-Overall_model <- glmmTMB(Count ~ Year + Month, contrasts = list(Month = "contr.sum"),
+Overall_model <- glmmTMB(Count ~ Year + Month + Final_Stage, contrasts = list(Month = "contr.sum"),
                          data = Overall_counts, family = poisson)
 summary(Overall_model)
-#Coefficients -sum=Month12
-c(fixef(Overall_model)$cond,-sum(fixef(Overall_model)$cond))
+#Coefficients- last one = -sum(fixef(all other levels))
 #
 ##Model checking - DHARMa
 plot(simulateResiduals(Overall_model)) #Overdispersion - try negative binomial
@@ -111,10 +110,13 @@ summary(Overall_model2)
 plot(simulateResiduals(Overall_model2)) #better
 anova(Overall_model, Overall_model2)
 testZeroInflation(Overall_model2) #Not sig 
-testDispersion(Overall_model2) #Barely Sig
+testDispersion(Overall_model2) #Sig
 testOutliers(Overall_model2)
+testQuantiles(Overall_model2)
+testCategorical(Overall_model2, catPred = Overall_counts$Month) #1-0.01; 4-0.03
+testCategorical(Overall_model2, catPred = Overall_counts$Final_Stage) #1-<0.001
 #
-Overall_model3 <- glmmTMB(Count ~ as.numeric(Year) + offset(log(as.numeric(Month))),
+Overall_model3 <- glmmTMB(Count ~ as.numeric(Year) + Month + offset(log(as.numeric(Final_Stage))),
                           data = Overall_counts, family = nbinom2)
 summary(Overall_model3)
 plot(simulateResiduals(Overall_model3))
@@ -122,15 +124,51 @@ anova(Overall_model2, Overall_model3) #2 is better than 3
 #
 Overall_model4 <- update(Overall_model2, ziformula = ~1)
 anova(Overall_model2, Overall_model4) #Better = 2
-#5
+#
 plot(simulateResiduals(Overall_model2), form = Overall_counts$Year)
+plot(simulateResiduals(Overall_model2), form = Overall_counts$Month)
+plot(simulateResiduals(Overall_model2), form = Overall_counts$Final_Stage)
 #
-(Overall_Sites <- left_join(All_oysters_clean %>% group_by(Year, Month, Final_Stage, Site) %>% summarise(Count= n()),
-                             All_oysters_clean %>% group_by(Year, Month, Site) %>% summarise(Total= n())) %>% 
-    mutate(Year = as.numeric(Year),
-           Prop = Count/Total) %>% ungroup() %>% complete(Final_Stage, nesting(Year, Month, Site), fill = list(Count = 0, Total = 0, Prop = 0)))
+Overall_model5 <- glmmTMB(Count ~ as.numeric(Year) + Month + (1|Final_Stage),
+                          data = Overall_counts, family = nbinom2) 
+summary(Overall_model5)
+plot(simulateResiduals(Overall_model5)) 
+anova(Overall_model2, Overall_model5)
+#
+Overall_model6 <- glmmTMB(Count ~ as.numeric(Year) + Final_Stage + (1|Month),
+                          data = Overall_counts, family = nbinom2) 
+summary(Overall_model6)
+plot(simulateResiduals(Overall_model6)) 
+anova(Overall_model2, Overall_model6)
+#
+Overall_model7 <- glmmTMB(Count ~ Year * Month * Final_Stage, contrasts = list(Month = "contr.sum"),
+                          data = Overall_counts, family = poisson)
+summary(Overall_model7)
+anova(Overall_model2, Overall_model7)
+#
+Overall_model8 <- update(Overall_model2, ziformula = ~Final_Stage + Month)
+summary(Overall_model8)
+anova(Overall_model2, Overall_model8) ###BETTER
+testZeroInflation(Overall_model8) #Not sig 
+testDispersion(Overall_model8) #Sig
+testOutliers(Overall_model8)
+testQuantiles(Overall_model8)
+testCategorical(Overall_model8, catPred = Overall_counts$Month) #1-0.004
+testCategorical(Overall_model8, catPred = Overall_counts$Final_Stage) #2-0.04; 4-0.004
+plot(simulateResiduals(Overall_model8)) 
+#
+Overall_model9 <- update(Overall_model2, dispformula = ~Final_Stage + Month)
+anova(Overall_model2, Overall_model9) ###BETTER
+plot(simulateResiduals(Overall_model9)) 
+testZeroInflation(Overall_model9) #Not sig 
+testDispersion(Overall_model9) #Sig
+testOutliers(Overall_model9)
+testQuantiles(Overall_model9)
+testCategorical(Overall_model9, catPred = Overall_counts$Month)
+testCategorical(Overall_model9, catPred = Overall_counts$Final_Stage)
 #
 #
+
 #
 #
 ####WORKING####
