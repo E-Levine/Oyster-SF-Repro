@@ -9,7 +9,7 @@ pacman::p_load(plyr, tidyverse, #Df manipulation,
                zoo, lubridate, #Dates and times
                readxl, writexl, #Reading excel files
                car, #Basic analyses
-               lmPerm, lme4, ordinal,
+               lmPerm, lme4, glmmTMB, DHARMa, #ordinal,
                ggpubr, #Arranging ggplots
                install = TRUE)
 #
@@ -88,7 +88,47 @@ All_oysters_clean %>% group_by(Month) %>%
 #
 ####glm - Year, Month v Stage####
 #
-
+(Overall_counts <- left_join(All_oysters_clean %>% group_by(Year, Month, Final_Stage) %>% summarise(Count= n()),
+                            All_oysters_clean %>% group_by(Year, Month) %>% summarise(Total= n())) %>% 
+  mutate(Year = as.numeric(Year),
+         Prop = Count/Total) %>% ungroup() %>% complete(Final_Stage, nesting(Year, Month), fill = list(Count = 0, Total = 0, Prop = 0)))
+#
+##Check response
+hist(Overall_counts$Count)
+#
+##Fit model
+Overall_model <- glmmTMB(Count ~ Year + Month, contrasts = list(Month = "contr.sum"),
+                         data = Overall_counts, family = poisson)
+summary(Overall_model)
+#Coefficients -sum=Month12
+c(fixef(Overall_model)$cond,-sum(fixef(Overall_model)$cond))
+#
+##Model checking - DHARMa
+plot(simulateResiduals(Overall_model)) #Overdispersion - try negative binomial
+#
+Overall_model2 <- update(Overall_model, family = nbinom2)
+summary(Overall_model2)
+plot(simulateResiduals(Overall_model2)) #better
+anova(Overall_model, Overall_model2)
+testZeroInflation(Overall_model2) #Not sig 
+testDispersion(Overall_model2) #Barely Sig
+testOutliers(Overall_model2)
+#
+Overall_model3 <- glmmTMB(Count ~ as.numeric(Year) + offset(log(as.numeric(Month))),
+                          data = Overall_counts, family = nbinom2)
+summary(Overall_model3)
+plot(simulateResiduals(Overall_model3))
+anova(Overall_model2, Overall_model3) #2 is better than 3
+#
+Overall_model4 <- update(Overall_model2, ziformula = ~1)
+anova(Overall_model2, Overall_model4) #Better = 2
+#5
+plot(simulateResiduals(Overall_model2), form = Overall_counts$Year)
+#
+(Overall_Sites <- left_join(All_oysters_clean %>% group_by(Year, Month, Final_Stage, Site) %>% summarise(Count= n()),
+                             All_oysters_clean %>% group_by(Year, Month, Site) %>% summarise(Total= n())) %>% 
+    mutate(Year = as.numeric(Year),
+           Prop = Count/Total) %>% ungroup() %>% complete(Final_Stage, nesting(Year, Month, Site), fill = list(Count = 0, Total = 0, Prop = 0)))
 #
 #
 #
