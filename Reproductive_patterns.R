@@ -171,7 +171,7 @@ Overall_counts %>%
 #
 #
 #
-####glm proportions - By Estuary: All, Year, Month####
+####glm proportions - Estuaries: All, Year, Month####
 #
 #ESTUARY
 (Site_counts <- left_join(All_oysters_clean %>% group_by(Year, Month, Estuary, Site, Final_Stage) %>% summarise(Count= n()),
@@ -335,4 +335,90 @@ Prop_means6 %>%
 #
 #
 #
+ggplot(post2017, aes(Year, Prop, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Estuary)+
+  geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
 #
+Prop_mod7 <- glmmTMB(Prop ~ Estuary * Year * Final_Stage * (1|Site), data = post2017, family = "ordbeta")
+summary(Prop_mod7)
+plot(simulateResiduals(Prop_mod7)) 
+testZeroInflation(Prop_mod7) #Not sig 
+testDispersion(Prop_mod7) #Sig
+testOutliers(Prop_mod7) #some
+testQuantiles(Prop_mod7)
+testCategorical(Prop_mod7, catPred = post2017$Estuary)
+testCategorical(Prop_mod7, catPred = post2017$Year)
+testCategorical(Prop_mod7, catPred = post2017$Final_Stage)
+#
+Anova(Prop_mod7)
+Prop_mod7_2 <- glmmTMB(Prop ~ Estuary * Year * (1|Site), data = post2017, family = "ordbeta")
+plot(simulateResiduals(Prop_mod7_2)) 
+Anova(Prop_mod7_2)
+(Prop_EstYr17_summ <- tidy(Anova(Prop_mod7_2)) %>% rename("F" = statistic) %>% mutate_if(is.numeric,round, digits = 3))
+(Prop_m7_em <- emmeans(Prop_mod7_2, ~Estuary*Year, type = "response"))
+(Prop_m7_pairs <- pairs(Prop_m7_em, simple = "Year", adjust = "tukey") %>% as.data.frame() %>% dplyr::select(-df, -null) %>%
+    mutate(contrast = gsub("Year", "", contrast)) %>% arrange(Estuary))
+#
+(Prop_means7 <- post2017 %>% group_by(Estuary, Year) %>%
+    summarise(meanProp = round(mean(Prop), 3),
+              sdProp = round(sd(Prop), 3),
+              minProp = round(min(Prop), 3),
+              maxProp = round(max(Prop), 3)))
+#
+post2017 %>%
+  ggplot(aes(Year, Prop, fill = Estuary))+
+  geom_boxplot()+
+  #lemon::facet_rep_grid(Estuary~Final_Stage)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+#
+#
+#
+####glm proportions - By Estuary - changed by year, month, monyr####
+#
+(Worth <- left_join(All_oysters_clean %>% filter(Site == "LW" | Site == "LW-R") %>% group_by(Year, Month, Station, Final_Stage) %>% summarise(Count= n()),
+         All_oysters_clean  %>% filter(Site == "LW" | Site == "LW-R") %>% group_by(Year, Month, Station) %>% summarise(Total= n())) %>% 
+  mutate(Prop = Count/Total) %>% ungroup() %>% 
+  complete(Final_Stage, nesting(Year, Month, Station), fill = list(Count = 0, Total = 0, Prop = 0)) %>% mutate(ID = row_number(),
+                                                                                                      MonYr = as.yearmon(paste0(Year, "/", Month), format = "%Y/%m"))) 
+#
+##View data
+hist(Worth$Prop, breaks = 20)
+ggplot(Worth, aes(Year, Prop, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Final_Stage)+
+  geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
+#Build model
+Worth_mod1 <- glmmTMB(Prop ~ Year * Final_Stage * (1|Station), data = Worth, family = "ordbeta")
+summary(Worth_mod1)
+plot(simulateResiduals(Worth_mod1)) #No issues
+testZeroInflation(Worth_mod1) #Not sig 
+testDispersion(Worth_mod1) #Sig
+testOutliers(Worth_mod1) #some
+testQuantiles(Worth_mod1)
+testCategorical(Worth_mod1, catPred = Worth$Year)
+testCategorical(Worth_mod1, catPred = Worth$Final_Stage)
+#
+Anova(Worth_mod1)
+(Worth_yr_summ <- tidy(Anova(Worth_mod1)) %>% rename("F" = statistic) %>% mutate_if(is.numeric,round, digits = 3))
+(Worth_mod1_em <- emmeans(Worth_mod1, ~Year*Final_Stage, type = "response"))
+(Worth_mod1_pairs <- pairs(Worth_mod1_em, simple = "Year", adjust = "tukey") %>% as.data.frame() %>% dplyr::select(-df, -null) %>%
+    mutate(contrast = gsub("Year", "", contrast)))
+#
+(Worth_yr_means <- Worth %>% group_by(Year, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3),
+              sdProp = round(sd(Prop), 3),
+              minProp = round(min(Prop), 3),
+              maxProp = round(max(Prop), 3)))
+#
+Worth %>%
+  ggplot(aes(Year, Prop, fill = Final_Stage))+
+  geom_boxplot()+
+  lemon::facet_rep_grid(Final_Stage~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+#
+#
+#
+
