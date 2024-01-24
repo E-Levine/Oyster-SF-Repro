@@ -8,9 +8,9 @@ pacman::p_load(plyr, tidyverse, #Df manipulation,
                rstatix, rcompanion, #Summary stats & multiple comparisons
                zoo, lubridate, #Dates and times
                readxl, writexl, #Reading excel files
-               car, #Basic analyses
+               car, scales, #Basic analyses
                lmPerm, lme4, glmmTMB, DHARMa, #ordinal,
-               ggpubr, #Arranging ggplots
+               emmeans, multcomp, ggpubr, #Arranging ggplots
                install = TRUE)
 #
 #
@@ -168,7 +168,95 @@ testCategorical(Overall_model9, catPred = Overall_counts$Month)
 testCategorical(Overall_model9, catPred = Overall_counts$Final_Stage)
 #
 #
-
+#
+####glm proportions####
+#
+##Add sample level factor (ID)
+#
+(Overall_counts <- left_join(All_oysters_clean %>% group_by(Year, Month, Final_Stage) %>% summarise(Count= n()),
+                             All_oysters_clean %>% group_by(Year, Month) %>% summarise(Total= n())) %>% 
+   mutate(#Year = as.numeric(paste(Year)),
+          Prop = Count/Total) %>% ungroup() %>% 
+   complete(Final_Stage, nesting(Year, Month), fill = list(Count = 0, Total = 0, Prop = 0)) %>% mutate(ID = row_number())) 
+#
+##VIew data
+hist(Overall_counts$Prop, breaks = 20)
+ggplot(Overall_counts, aes(Year, Prop, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Final_Stage)
+#Rescale and view trends
+Overall_counts <- Overall_counts %>% mutate(sProp = scales::rescale(Prop, to = c(0.00001, 0.99999))) #Remove 0s and 1s
+ggplot(Overall_counts, aes(Year, sProp, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Final_Stage)+
+  geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
+#
+#Build model
+Prop_mod1 <- glmmTMB(sProp ~ Year * Final_Stage, data = Overall_counts, family = "beta_family")
+summary(Prop_mod1)
+plot(simulateResiduals(Prop_mod1)) 
+testZeroInflation(Prop_mod1) #Not sig 
+testDispersion(Prop_mod1) #Sig
+testOutliers(Prop_mod1) #some
+testQuantiles(Prop_mod1)
+testCategorical(Prop_mod1, catPred = Overall_counts$Year)
+testCategorical(Prop_mod1, catPred = Overall_counts$Final_Stage)
+#
+summary(Prop_mod1)
+(Prop_yr_summ <- tidy(Anova(Prop_mod1)) %>% rename("F" = statistic) %>% mutate_if(is.numeric,round, digits = 3))
+(Prop_m1_em <- emmeans(Prop_mod1, ~Year*Final_Stage, type = "response"))
+(Prop_m1_pairs <- pairs(Prop_m1_em, simple = "Year", adjust = "tukey") %>% as.data.frame() %>% dplyr::select(-df, -null) %>%
+  mutate(contrast = gsub("Year", "", contrast)))
+#
+(Prop_means <- Overall_counts %>% group_by(Year, Final_Stage) %>%
+  summarise(meanProp = round(mean(Prop), 3),
+            sdProp = round(sd(Prop), 3),
+            minProp = round(min(Prop), 3),
+            maxProp = round(max(Prop), 3)))
+#
+Overall_counts %>%
+  ggplot(aes(Year, Prop, fill = Final_Stage))+
+  geom_boxplot()+
+  lemon::facet_rep_grid(Final_Stage~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+#
+#
+#
+#
+ggplot(Overall_counts, aes(Month, sProp, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Final_Stage)+
+  geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
+#
+Prop_mod2 <- glmmTMB(sProp ~ Month * Final_Stage, data = Overall_counts, family = "beta_family")
+summary(Prop_mod2)
+plot(simulateResiduals(Prop_mod2)) 
+testZeroInflation(Prop_mod1) #Not sig 
+testDispersion(Prop_mod2) #Sig
+testOutliers(Prop_mod2) #some
+testQuantiles(Prop_mod2)
+testCategorical(Prop_mod2, catPred = Overall_counts$Month)
+testCategorical(Prop_mod2, catPred = Overall_counts$Final_Stage)
+#
+summary(Prop_mod2)
+(Prop_mn_summ <- tidy(Anova(Prop_mod2)) %>% rename("F" = statistic) %>% mutate_if(is.numeric,round, digits = 3))
+(Prop_m2_em <- emmeans(Prop_mod2, ~Month*Final_Stage, type = "response"))
+(Prop_m2_pairs <- pairs(Prop_m2_em, simple = "Month", adjust = "tukey") %>% as.data.frame() %>% dplyr::select(-df, -null) %>%
+    mutate(contrast = gsub("Month", "", contrast)))
+#
+(Prop_means2 <- Overall_counts %>% group_by(Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3),
+              sdProp = round(sd(Prop), 3),
+              minProp = round(min(Prop), 3),
+              maxProp = round(max(Prop), 3)))
+#
+Overall_counts %>%
+  ggplot(aes(Month, Prop, fill = Final_Stage))+
+  geom_boxplot()+
+  lemon::facet_rep_grid(Final_Stage~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+#
+#
 #
 #
 ####WORKING####
