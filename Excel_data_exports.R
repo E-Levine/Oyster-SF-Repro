@@ -12,9 +12,10 @@ info <- createStyle(halign = "left", textDecoration = "bold")
 #
 ##Tools to modify for use
 wb = createWorkbook() #For first use
-summary <- loadWorkbook("../CSV/Summary/Perna_summary.xlsx") #For loading and updating a file
-addWorksheet(wb, "Sheet 1") #Adding worksheets
-removeWorksheet(summary, "initialMLR_%Sec") #Removing worksheets
+wb <- loadWorkbook("Output/Repro_summary.xlsx") #For loading and updating a file
+addWorksheet(wb, "Overall_trend") #Adding worksheets
+removeWorksheet(wb, "initialMLR_%Sec") #Removing worksheets
+#
 writeData(wb, "Sheet 1", df, startColumn=1, startRow = 1, rowNames=FALSE, borders = "surrounding", keepNA = T)
 saveWorkbook(wb, "My_File.xlsx", overwrite = T)
 #
@@ -28,25 +29,38 @@ writeData(summary, "Data_Prelim", Perna_output, startCol = "A", startRow = 1, ro
 #
 ####Repro data analyses_summaries####
 #
-wb <- loadWorkbook("../Output/Repro_summary_info.xlsx") #For loading and updating a file
-addWorksheet(wb, "All Data")
+openXL(wb)
 #
-##Header then data
-writeData(wb, "All Data", as.character("Overall Monthly Counts"), startCol = "A", startRow = 2, rowNames = F)
-writeData(wb, "All Data", Monthly_mean_counts_All, startCol = "A", startRow = 3, rowNames = F, borders = "surrounding", 
+wb <- loadWorkbook("../Output/Repro_summary.xlsx") #For loading and updating a file
+addWorksheet(wb, "Overall_trend")
+#
+#Years
+writeData(wb, "Overall_trend", as.character("Beta regression - Year * Stage"), startCol = "A", startRow = 2, rowNames = F)
+writeData(wb, "Overall_trend", Prop_yr_summ, startCol = "A", startRow = 3, rowNames = F, borders = "surrounding", 
           headerStyle = hsl, keepNA = F)
 #
-writeData(wb, "All Data", as.character("Monthly Counts by Site"), startCol = "A", startRow = 17, rowNames = F)
-writeData(wb, "All Data", Monthly_mean_counts_All_Sites, startCol = "A", startRow = 18, rowNames = F, borders = "surrounding", 
+writeData(wb, "Overall_trend", as.character("Summary Annual Props by Stage"), startCol = "A", startRow = 9, rowNames = F)
+writeData(wb, "Overall_trend", Prop_means, startCol = "A", startRow = 10, rowNames = F, borders = "surrounding", 
           headerStyle = hsl, keepNA = F)
 #
-writeData(wb, "All Data", as.character("Overall Monthly Chi-squared"), startCol = "S", startRow = 3, rowNames = F)
-writeData(wb, "All Data", tidy(All_test), startCol = "S", startRow = 4, rowNames = F, borders = "surrounding", 
-          headerStyle = hsl, keepNA = T)
-writeData(wb, "All Data", All_test_pvalues, startCol = "S", startRow = 6, rowNames = F, borders = "surrounding", 
+writeData(wb, "Overall_trend", as.character("Pairwise Tukey"), startCol = "H", startRow = 2, rowNames = F)
+writeData(wb, "Overall_trend", Prop_m1_pairs %>% filter(p.value < 0.06), startCol = "H", startRow = 3, rowNames = F, borders = "surrounding", 
           headerStyle = hsl, keepNA = T)
 #
-addStyle(wb, "All Data", style = createStyle(valign = "center", halign = "center"), cols = 1:49, rows = 1:90, gridExpand = TRUE, stack = TRUE)
-addStyle(wb, "All Data", style = info, cols = c("A", "A", "S"), rows = c(2, 17, 3))
+#Months
+writeData(wb, "Overall_trend", as.character("Beta regression - Month * Stage"), startCol = "P", startRow = 2, rowNames = F)
+writeData(wb, "Overall_trend", Prop_mn_summ, startCol = "P", startRow = 3, rowNames = F, borders = "surrounding", 
+          headerStyle = hsl, keepNA = F)
 #
-saveWorkbook(wb, "Output/Repro_summary_info.xlsx", overwrite = T)
+writeData(wb, "Overall_trend", as.character("Summary Monthly Props by Stage"), startCol = "P", startRow = 9, rowNames = F)
+writeData(wb, "Overall_trend", Prop_means2, startCol = "P", startRow = 10, rowNames = F, borders = "surrounding", 
+          headerStyle = hsl, keepNA = F)
+#
+writeData(wb, "Overall_trend", as.character("Pairwise Tukey"), startCol = "W", startRow = 2, rowNames = F)
+writeData(wb, "Overall_trend", Prop_m2_pairs %>% filter(p.value < 0.06), startCol = "W", startRow = 3, rowNames = F, borders = "surrounding", 
+          headerStyle = hsl, keepNA = T)
+#
+addStyle(wb, "Overall_trend", style = createStyle(valign = "center", halign = "center"), cols = 1:49, rows = 1:150, gridExpand = TRUE, stack = TRUE)
+addStyle(wb, "Overall_trend", style = info, cols = c("A", "A", "H", "P", "P", "W"), rows = c(2, 9, 2, 2, 9, 2))
+#
+saveWorkbook(wb, "Output/Repro_summary.xlsx", overwrite = T)
