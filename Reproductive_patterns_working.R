@@ -169,6 +169,80 @@ testCategorical(Overall_model9, catPred = Overall_counts$Final_Stage)
 #
 #
 #
+####glm ESTUARY####
+(Site_counts <- left_join(All_oysters_clean %>% group_by(Year, Month, Estuary, Site, Final_Stage) %>% summarise(Count= n()),
+                          All_oysters_clean %>% group_by(Year, Month, Estuary, Site) %>% summarise(Total= n())) %>% 
+    mutate(Prop = Count/Total) %>% ungroup() %>% 
+    complete(Final_Stage, Year, Month, Site, fill = list(Count = 0, Total = 0, Prop = 0)) %>% mutate(ID = row_number()) %>% 
+    mutate(sProp = scales::rescale(Prop, to = c(0.00001, 0.99999)),
+           Estuary = as.factor(ifelse(Site == "LW", "LW", 
+                                      ifelse(Site == "CR-W" | Site == "CR-E", "CR",
+                                             ifelse(Site == "LX-N" | Site == "LX-S", "LX", "SL")))),
+           Coast = as.factor(ifelse(Estuary == "CR", "West", "East"))))
+#
+ggplot(Site_counts, aes(Estuary, sProp, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Final_Stage)+
+  geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
+#
+Prop_mod3 <- glmmTMB(Prop ~ Estuary * Final_Stage * (1|Site), data = Site_counts, family = "ordbeta")
+summary(Prop_mod3)
+plot(simulateResiduals(Prop_mod3)) 
+testZeroInflation(Prop_mod3) #Not sig 
+testDispersion(Prop_mod3) #Sig
+testOutliers(Prop_mod3) #some
+testQuantiles(Prop_mod3)
+testCategorical(Prop_mod3, catPred = Site_counts$Estuary)
+testCategorical(Prop_mod3, catPred = Site_counts$Final_Stage)
+#
+summary(Prop_mod3)
+(Prop_SiteYr_summ <- tidy(Anova(Prop_mod3)) %>% rename("F" = statistic) %>% mutate_if(is.numeric,round, digits = 3))
+(Prop_m3_em <- emmeans(Prop_mod3, ~Estuary*Final_Stage, type = "response"))
+(Prop_m3_pairs <- pairs(Prop_m3_em, simple = "Estuary", adjust = "tukey") %>% as.data.frame() %>% dplyr::select(-df, -null) %>%
+    mutate(contrast = gsub("Month", "", contrast)))
+#
+(Prop_means3 <- Site_counts %>% group_by(Estuary, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3),
+              sdProp = round(sd(Prop), 3),
+              minProp = round(min(Prop), 3),
+              maxProp = round(max(Prop), 3)))
+#
+Site_counts %>%
+  ggplot(aes(Estuary, Prop, fill = Final_Stage))+
+  geom_boxplot()+
+  lemon::facet_rep_grid(Final_Stage~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+#
+East_counts <- Site_counts %>% filter(Coast == "East") %>% droplevels()
+Prop_mod4 <- glmmTMB(Prop ~ Estuary * Final_Stage * (1|Site), data = East_counts, family = "ordbeta")
+summary(Prop_mod4)
+plot(simulateResiduals(Prop_mod4)) 
+testZeroInflation(Prop_mod4) #Not sig 
+testDispersion(Prop_mod4) #Sig
+testOutliers(Prop_mod4) #some
+testQuantiles(Prop_mod4)
+testCategorical(Prop_mod4, catPred = East_counts$Estuary)
+testCategorical(Prop_mod4, catPred = East_counts$Final_Stage)
+#
+summary(Prop_mod4)
+(Prop_East_summ <- tidy(Anova(Prop_mod4)) %>% rename("F" = statistic) %>% mutate_if(is.numeric,round, digits = 3))
+(Prop_m4_em <- emmeans(Prop_mod4, ~Estuary, type = "response"))
+(Prop_m4_pairs <- pairs(Prop_m4_em, simple = "Estuary", adjust = "tukey") %>% as.data.frame() %>% dplyr::select(-df, -null) )
+#
+(Prop_means4 <- East_counts %>% group_by(Estuary, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3),
+              sdProp = round(sd(Prop), 3),
+              minProp = round(min(Prop), 3),
+              maxProp = round(max(Prop), 3)))
+#
+East_counts %>%
+  ggplot(aes(Estuary, Prop, fill = Final_Stage))+
+  geom_boxplot()+
+  lemon::facet_rep_grid(Final_Stage~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
 ####glm proportions####
 #
 ##Add sample level factor (ID)
