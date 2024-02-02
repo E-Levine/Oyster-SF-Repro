@@ -459,3 +459,127 @@ All_oysters_clean %>% group_by(Month) %>%
   group_by(Month, Final_Stage) %>% 
   count() %>% #ungroup() %>%
   summarize(medianCount = median(n)) 
+####Comparisons over time####
+Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>%
+  ggplot(aes(Month, meanProp, group = Final_Stage))+
+  geom_line(linewidth = 1, color = "#E69F00")+
+  geom_vline(data = First_Last0.35, aes(xintercept  = Month), color = "black", size = 2)+
+  geom_vline(data = First_Last0.5, aes(xintercept =  Month), color = "red", size = 2)+
+  lemon::facet_rep_grid(Year~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+(First_Last0.35 <- rbind(
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.35) %>%
+    slice(1),
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.35) %>%
+    slice(n())))
+#
+(First_Last0.5 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.5) %>%
+    slice(1))
+#
+#
+#
+#Development
+Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>%
+  ggplot(aes(Month, meanProp, group = Final_Stage))+
+  geom_line(linewidth = 1, color = "#D55E00")+
+  geom_vline(data = First_Last0.35_1, aes(xintercept  = Month), color = "black", size = 2)+
+  geom_vline(data = First_Last0.5_1, aes(xintercept =  Month), color = "red", size = 2)+
+  lemon::facet_rep_grid(Year~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+(First_Last0.35_1 <- rbind(
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.35) %>%
+    slice(1),
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.35) %>%
+    slice(n())))
+#
+(First_Last0.5_1 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.5) %>%
+    slice(1))
+#
+#
+#Spent
+Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>%
+  ggplot(aes(Month, meanProp, group = Final_Stage))+
+  geom_line(linewidth = 1, color = "#F0E442")+
+  geom_vline(data = First_Last0.35_3, aes(xintercept  = Month), color = "black", size = 2)+
+  geom_vline(data = First_Last0.5_3, aes(xintercept =  Month), color = "red", size = 2)+
+  lemon::facet_rep_grid(Year~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+(First_Last0.35_3 <- rbind(
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.35) %>%
+    slice(1),
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.35) %>%
+    slice(n())))
+#
+(First_Last0.5_3 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.5) %>%
+    slice(1))
+#
+#
+#
+#Indifferent
+Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 4) %>%
+  ggplot(aes(Month, meanProp, group = Final_Stage))+
+  geom_line(linewidth = 1, color = "#009E73")+
+  geom_vline(data = First_Last0.35_4, aes(xintercept  = Month), color = "black", size = 2)+
+  geom_vline(data = First_Last0.5_4, aes(xintercept =  Month), color = "red", size = 2)+
+  lemon::facet_rep_grid(Year~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+(First_Last0.35_4 <- rbind(
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 4) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.35) %>%
+    slice(1),
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 4) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.35) %>%
+    slice(n())))
+#
+(First_Last0.5_4 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 4) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.5) %>%
+    slice(1))

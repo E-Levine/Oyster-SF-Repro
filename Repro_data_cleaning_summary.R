@@ -60,12 +60,12 @@ Repro_df <- Repro %>% drop_na(Parasite) %>%
 #
 summary(Repro_df)
 #
-Data_checks <- Repro_df %>% filter(is.na(Final_Stage) & Bad_Slide != "Yes") #Dont' want any rows of data
-  #rbind(Repro_df %>% filter(Sex == "M" & is.na(Final_Stage)), #Anything Bad_Slide = Yes should be NA
-  #      Repro_df %>% filter(Sex == "F" & is.na(Final_Stage)))
+Data_checks <- #Repro_df %>% filter(is.na(Final_Stage) & Bad_Slide != "Yes") #Dont' want any rows of data
+  rbind(Repro_df %>% filter(Sex == "M" & is.na(Final_Stage)), #Anything Bad_Slide = Yes should be NA
+        Repro_df %>% filter(Sex == "F" & is.na(Final_Stage)))
 #
 ##Write output of cleaned data
-#write_xlsx(Repro_df, "Output/Repro_data_2024 01_cleaned.xlsx", format_headers = TRUE)
+#write_xlsx(Repro_df, "Output/Repro_data_2024 02_cleaned.xlsx", format_headers = TRUE)
 #
 #
 ##Calculate proportion per stage
@@ -76,7 +76,7 @@ Data_checks <- Repro_df %>% filter(is.na(Final_Stage) & Bad_Slide != "Yes") #Don
     mutate(Prop = Count/Total)) 
 #
 ##Write output of cleaned data (if changed)
-#write_xlsx(Repro_props, "Output/Repro_proportions_2024 01.xlsx", format_headers = TRUE)
+#write_xlsx(Repro_props, "Output/Repro_proportions_2024 02.xlsx", format_headers = TRUE)
 #
 summary(Repro_props)
 #

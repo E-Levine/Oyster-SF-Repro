@@ -18,7 +18,7 @@ pacman::p_load(plyr, tidyverse, #Df manipulation,
 #
 #
 ####Load files####
-Repro_df <- read_excel("Output/Repro_data_2024 01_cleaned.xlsx", sheet = "Sheet1", #File name and sheet name
+Repro_df <- read_excel("Output/Repro_data_2024 02_cleaned.xlsx", sheet = "Sheet1", #File name and sheet name
                        skip = 0, col_names = TRUE, 
                        na = c(""), trim_ws = TRUE, #Values/placeholders for NAs; trim extra white space?
                        .name_repair = "universal") %>% 
@@ -102,6 +102,7 @@ ggplot(Overall_counts, aes(Year, sProp, color = Final_Stage))+ geom_point() + le
   geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
 #
 #Build model
+set.seed(5432)
 Prop_mod1 <- glmmTMB(sProp ~ Year * Final_Stage, data = Overall_counts, family = "beta_family")
 summary(Prop_mod1)
 plot(simulateResiduals(Prop_mod1)) #No issues
@@ -132,6 +133,22 @@ Overall_counts %>%
   scale_x_discrete(expand = c(0,0.5))+
   scale_y_continuous(expand = c(0,0))
 #
+###Letters
+Prop_mod1b <- glmmTMB(sProp ~ St_Yr, 
+                      data = Overall_counts %>% mutate(St_Yr = paste0(Final_Stage, "_", Year)), 
+                      family = "beta_family")
+cld(lsmeans(Prop_mod1b, c("St_Yr")), Letters = letters) %>% arrange(St_Yr)
+#
+#
+Prop_means %>%
+  ggplot(aes(Year, meanProp, color = Final_Stage, group = Final_Stage))+
+  geom_line(linewidth = 1)+
+  #lemon::facet_rep_grid(Final_Stage~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+#
 #
 #
 #MONTHS
@@ -139,6 +156,7 @@ Overall_counts %>%
 ggplot(Overall_counts, aes(Month, sProp, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Final_Stage)+
   geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
 #
+set.seed(5432)
 Prop_mod2 <- glmmTMB(sProp ~ Month * Final_Stage, data = Overall_counts, family = "beta_family")
 summary(Prop_mod2)
 plot(simulateResiduals(Prop_mod2)) 
@@ -169,6 +187,50 @@ Overall_counts %>%
   scale_x_discrete(expand = c(0,0.5))+
   scale_y_continuous(expand = c(0,0))
 #
+###Letters
+Prop_mod2b <- glmmTMB(sProp ~ St_Mo, 
+                      data = Overall_counts %>% mutate(St_Mo = paste0(Final_Stage, "_", Month)), 
+                      family = "beta_family")
+cld(lsmeans(Prop_mod2b, c("St_Mo")), Letters = letters) %>% arrange(St_Mo)
+#
+#
+Prop_means2 %>%
+  ggplot(aes(Month, meanProp, color = Final_Stage, group = Final_Stage))+
+  geom_line(linewidth = 1)+
+  #lemon::facet_rep_grid(Final_Stage~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+#
+Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>%
+  ggplot(aes(Month, meanProp, group = Final_Stage))+
+  geom_line(linewidth = 1, color = "#E69F00")+
+  geom_vline(data = First_Last0.35, aes(xintercept  = Month), color = "black", size = 2)+
+  geom_vline(data = First_Last0.5, aes(xintercept =  Month), color = "red", size = 2)+
+  lemon::facet_rep_grid(Year~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+(First_Last0.35 <- rbind(
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
+  arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+  filter(meanProp > 0.35) %>%
+  slice(1),
+Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
+  arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+  filter(meanProp > 0.35) %>%
+  slice(n())))
+#
+(First_Last0.5 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.5) %>%
+    slice(1))
 #
 #
 ####glm proportions - Estuaries: All, Year, Month####
@@ -190,6 +252,7 @@ pre2017 <- anti_join(Site_counts, post2017) %>% subset(Estuary != "CR") %>% drop
 ggplot(Site_counts, aes(Estuary, sProp, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Final_Stage)+
   geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
 #
+set.seed(5432)
 Prop_mod3 <- glmmTMB(Prop ~ Estuary * Final_Stage * (1|Site), data = Site_counts, family = "ordbeta")
 summary(Prop_mod3)
 plot(simulateResiduals(Prop_mod3)) 
@@ -225,6 +288,7 @@ Site_counts %>%
 ggplot(pre2017, aes(Estuary, Prop, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Final_Stage)+
   geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
 #
+set.seed(5432)
 Prop_mod4 <- glmmTMB(Prop ~ Estuary * Final_Stage * (1|Site), data = pre2017, family = "ordbeta")
 summary(Prop_mod4)
 plot(simulateResiduals(Prop_mod4)) 
@@ -258,6 +322,7 @@ pre2017 %>%
 ggplot(post2017, aes(Estuary, Prop, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Final_Stage)+
   geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
 #
+set.seed(5432)
 Prop_mod5 <- glmmTMB(Prop ~ Estuary * Final_Stage * (1|Site), data = post2017, family = "ordbeta")
 summary(Prop_mod5)
 plot(simulateResiduals(Prop_mod5)) 
@@ -294,6 +359,7 @@ post2017 %>%
 ggplot(pre2017, aes(Year, Prop, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Estuary)+
   geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
 #
+set.seed(5432)
 Prop_mod6 <- glmmTMB(Prop ~ Estuary * Year * Final_Stage * (1|Site), data = pre2017, family = "ordbeta")
 summary(Prop_mod6)
 plot(simulateResiduals(Prop_mod6)) 
@@ -338,6 +404,7 @@ Prop_means6 %>%
 ggplot(post2017, aes(Year, Prop, color = Final_Stage))+ geom_point() + lemon::facet_rep_grid(.~Estuary)+
   geom_smooth(method = "glm", method.args = list(family = "beta_family"), formula = y~x)
 #
+set.seed(5432)
 Prop_mod7 <- glmmTMB(Prop ~ Estuary * Year * Final_Stage * (1|Site), data = post2017, family = "ordbeta")
 summary(Prop_mod7)
 plot(simulateResiduals(Prop_mod7)) 
