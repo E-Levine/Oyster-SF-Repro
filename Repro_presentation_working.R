@@ -165,3 +165,97 @@ Maturity %>% filter(Final_Stage == "1" & SH < 47) %>%
   Base + scale_x_continuous("Shell height (mm)", expand = c(0,0)) + scale_y_continuous("Count", expand = c(0,0))
 #
 #
+
+####Repro collections per date####
+#
+##Data frame of full sampling timeframe - remove extra stations from all time sites and extra stations created when filling out CR
+Repro_full <- rbind(Repro_c %>% filter(Estuary != "CR" & Estuary != "TB") %>% droplevels() %>% complete(Year, Month, Site, Station) %>%
+                      filter(!(Site == "LW" & Station == "4") & !(Site == "LX-N" & Station == "4") & !(Site == "LX-S" & Station == "4") & 
+                               !(Site == "SL-C" & Station == "4") & !(Site == "SL-N" & Station == "4") & !(Site == "SL-S" & Station == "4")), 
+                    Repro_c %>% filter(Estuary == "CR") %>% droplevels()  %>% complete(Year, Month, Site, Station) %>% 
+                      filter(!(Site == "CR-E" & Station == "3") & !(Site == "CR-E" & Station == "4") & !(Site == "CR-W" & Station == "1") &
+                               !(Site == "CR-W" & Station == "2"))) %>% 
+  mutate(MonYr = as.Date(paste(Year, Month, "01", sep = "-")), format = "%Y-%m-%d") 
+##Data frame of number of samples per Month/Year - includes Buceph
+(Repro_samples <- Repro_full %>%
+    mutate_at(c("Year", "Month"), as.integer) %>%
+    group_by(Year, Month, MonYr, Site, Station) %>% summarise(Samples = sum(!is.na(SH))))
+#Excludes Buceph
+(Repro_samples_noB <- Repro_full %>% filter(Buceph == "N") %>%
+    mutate_at(c("Year", "Month"), as.integer) %>%
+    group_by(Year, Month, MonYr, Site, Station) %>% summarise(Samples = sum(!is.na(SH))))
+##Function to determine all months without samples, and next time samples were collected (by station):
+#StartDate of project: YYYY-MM-01
+#output[1]: Site activity
+#output[2]: Repro data
+#output[4]: repro data dates
+#Requires: Repro_samples, Repro_full, Repro_samples_noB
+ReproSampling <- function(TargetSite, StartDate) {
+  #
+  #Create data frame for final selected data and dates/number of samples
+  Selected_repro_data <- data.frame()
+  Dates_repro_data <- data.frame()
+  
+  #Filter data for site (Site_repro) and determine number reproductively active each month (Site_active)
+  Site_repro <-  Repro_samples %>% filter(Site == TargetSite, MonYr >= as.Date(paste(StartDate)))
+  Site_active <- Repro_full %>% filter(Site == TargetSite, MonYr >= as.Date(paste(StartDate)) & Final_Stage != 8) %>%
+    #NOTE: When converting Final_Stage to integer, each value is 1 higher due to the "0" stage factor level (0 factor = 1 integer, 1=2, etc.)
+    mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 1 & as.integer(Final_Stage) < 5, "Y", "N"))) %>% 
+    group_by(MonYr, Site, Station, Active) %>% summarise(Count = n()) #%>% drop_na(Active) 
+  #Summarize counts of active or not active, percent of monthly sample, and average SH of each class
+  Site_active_summ <- left_join(Site_active %>% group_by(MonYr, Site, Station, Active) %>% summarise(Count = sum(Count)),
+                                Repro_samples_noB %>% group_by(Site, MonYr, Station) %>% summarise(Total = sum(Samples))) %>%
+    mutate(Pct = (Count/Total)*100) %>% #Adding percent of sample
+    left_join(Repro_full %>% filter(Site == TargetSite & Buceph == "N") %>% 
+                mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 1 & as.integer(Final_Stage) < 5, "Y", "N"))) %>%
+                group_by(MonYr, Site, Station, Active) %>% summarise(meanSH = mean(SH, na.rm = T), sdSH = sd(SH, na.rm = T), minSH = min(SH, na.rm = T), maxSH = max(SH, na.rm = T)))
+  
+  #Determine number of stations for the desired site and all dates of study
+  Site_active <- Repro_full %>% filter(Site == TargetSite, MonYr >= as.Date(paste(StartDate))) %>%
+    mutate(Active = as.factor(ifelse(as.integer(Final_Stage) > 0 & as.integer(Final_Stage) < 4, "Y", "N"))) %>% 
+    group_by(MonYr, Site, Station, Active) %>% summarise(Count = n()) %>% drop_na(Active) 
+  Stations <- unique(Site_repro$Station)
+  #Loop over data to determine 0s and samples for each station
+  for (i in Stations) {
+    Station_df_i <- filter(Site_repro, Station == i)
+    Station_rle <- rle(Station_df_i$Samples == 0) #Identify each first instance of 0 or non-zero and how many rows until next change
+    Station_first <- Station_rle$values == 0 & Station_rle$lengths > 1 #Select the first instance of each sequence of 0s
+    Station_index <- (cumsum(Station_rle$lengths)+1)[Station_first] #Get the index of the first instance 
+    Station_zeros <- Station_df_i[Station_index,] #Select the first instance of each sequence of 0s
+    
+    #Identify next time samples were collected
+    Station_rle_n <- rle(Station_df_i$Samples == 0)
+    Station_first_n <- Station_rle_n$values == 0 & Station_rle_n$lengths >= 1 
+    Station_last_index <- ((cumsum(Station_rle_n$lengths))[Station_first_n == FALSE])+1
+    Station_counts <- Station_df_i[Station_last_index,]
+    
+    #Filter to data for desired dates
+    (Station_repro_data_i <- rbind(Repro_full %>% dplyr::select(Year:Sex, Estuary, Final_Stage:MonYr) %>%
+                                     filter(MonYr %in% Station_zeros$MonYr & Site == TargetSite),
+                                   Repro_full %>% dplyr::select(Year:Sex, Estuary, Final_Stage:MonYr) %>%
+                                     filter(MonYr %in% Station_counts$MonYr & Site == TargetSite)))        
+    Selected_repro_data <- rbind(Selected_repro_data, Station_repro_data_i)
+    Dates_repro_data <- rbind(Dates_repro_data, Station_zeros, Station_counts)
+  }
+  return(list(Site_active, Site_active_summ, Selected_repro_data, Dates_repro_data))
+}
+#
+temp <- ReproSampling("SL-C", "2005-02-01")
+#
+##Separate each data frame
+SLC_activity <- as.data.frame(temp[1])
+SLC_activity_summary <- as.data.frame(temp[2])
+SLC_selected_repro <- as.data.frame(temp[3])
+SLC_selected_dates <- as.data.frame(temp[4])
+#
+#
+SLC_selected_dates %>% 
+  ggplot(aes(MonYr, Samples, group = Station, color = as.factor(Samples)))+
+  geom_point(size = 3)+
+  theme_classic()
+#Histogram plot of blank spaces for no collections then Y/N fill of activity until all active again. Ave sizes corresponding to activity changes. 
+SLC_activity %>% 
+  ggplot(aes(MonYr, group = Active, fill = Active))+
+  #geom_histogram(aes(y = after_stat(count)))
+  geom_bar(position = "fill")+
+ lemon::facet_rep_grid(Station~.)
