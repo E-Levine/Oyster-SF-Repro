@@ -54,18 +54,20 @@ color_og <- c("#009E73", "#E69F00", "#9966FF", "#666666")
 #Map color to Sex
 names(color_og) <- c("F","M","M/F","Z")
 MFCol <- scale_color_manual(name = "", labels = Sex, values = color_og) 
+MFFill <- scale_fill_manual(name = "", labels = Sex, values = color_og) 
+
 #
 Base <- theme_bw() +
   theme(panel.grid = element_blank(), panel.border = element_blank(), panel.background = element_blank(),
         axis.line = element_line(color = "black"),
-        axis.title = element_text(size = 14, color = "black", family = "sans"),
-        axis.text.x = element_text(size = 13, color = "black", 
+        axis.title = element_text(size = 15, color = "black", family = "sans"),
+        axis.text.x = element_text(size = 14, color = "black", 
                                    margin = unit(c(0.4, 0.5, 0, 0.5), "cm"), family = "sans"),
-        axis.text.y = element_text(size = 13, color = "black", 
+        axis.text.y = element_text(size = 14, color = "black", 
                                    margin = unit(c(0, 0.4, 0, 0), "cm"), family = "sans"),
         axis.ticks.length = unit(-0.15, "cm"), plot.margin = margin(0.25, 0.5, 0.25, 0.25, "cm"))
 #
-theme_f <- theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
+theme_f <- theme(strip.text.y = element_text(color = "black", size = 13, family = "sans", face = "bold"),
                  strip.background = element_rect(fill = "#CCCCCC"),
                  panel.spacing = unit(0.75, "lines"),
                  strip.text.x = element_text(size = 10, face = "bold", family = "sans"))
@@ -89,7 +91,8 @@ Repro_c %>%
   geom_bar(position = "fill")+
   StaFill + Base +
   scale_x_discrete(expand = c(0.2, 0))+
-  scale_y_continuous("", expand = c(0,0), labels = scales::percent(c(0, 0.25, 0.5, 0.75, 1)))
+  scale_y_continuous("", expand = c(0,0), labels = scales::percent(c(0, 0.25, 0.5, 0.75, 1)))+
+  theme(legend.text = element_text(size = 11))
 #          
 #
 ##Very few 0s. For sake of practice, logistic curve for age at maturity
@@ -107,13 +110,13 @@ Maturity <- Repro_c %>%
 head(Maturity)
 #
 #
-##Number per SL bin - show with and without free_y for comparison
+##Number per SL bin 
 Maturity %>%
   ggplot(aes(SH, fill = Sex))+
   geom_histogram(aes(y = ..count..), breaks = seq(0,90, by = 5), alpha = 0.8)+
   lemon::facet_rep_grid(Sex~., scales = 'free_y')+
   Base + scale_x_continuous("Shell height (mm)", expand = c(0,0)) + scale_y_continuous("Count", expand = c(0,0))+
-  theme(legend.position = "none")
+  theme(legend.position = "none") +MFFill
 #
 Maturity %>% subset(Mature == "I") %>%
   ggplot(aes(SH))+
@@ -148,7 +151,8 @@ mat_all %>%
   Base + MFCol +
   geom_vline(xintercept = LD50[[1]],linetype = "dashed", color = "black", size = 1)+
   scale_x_continuous(name = "Shell height (mm)", expand = c(0,0), limits = c(0, round5(max(mat_all$SH))), breaks = seq(0, round5(max(mat_all$SH)), by = 10))+
-  scale_y_continuous(name = "Proportion mature", expand = c(0.025,0.025), limits = c(0,1))
+  scale_y_continuous(name = "Proportion mature", expand = c(0.025,0.025), limits = c(0,1))+
+  theme(legend.text = element_text(size = 11))
 
 #
 #
