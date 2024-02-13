@@ -40,6 +40,19 @@ summary(Repro_props)
 #
 #
 #
+##Recruitment data
+Rcrt_df <- read_excel("Rcrt_data_2023 12_cleaned.xlsx", sheet = "Sheet1", #File name and sheet name
+                      skip = 0, col_names = TRUE, 
+                      na = c(""), trim_ws = TRUE, #Values/placeholders for NAs; trim extra white space?
+                      .name_repair = "universal") %>%
+  subset(Site != "TB" & Site != "LW-R") 
+head(Rcrt_df)
+Rcrt_df <-  Rcrt_df %>%
+  mutate(MonYr = as.Date(MonYr))
+#
+#
+#
+#
 ####Formatting and helpers####
 #
 #Map color to Stage
@@ -289,6 +302,15 @@ SLC_activity %>%
   scale_x_date("", limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
                date_breaks = "24 months", date_labels = "%b %Y")+
   Base + theme_f)
+#
+#
+#
+#
+#
+####Recruitment data####
+#
+##Periods of no recruitment
 
-  
-
+#
+#
+#
