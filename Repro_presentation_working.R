@@ -130,7 +130,7 @@ Maturity %>%
   geom_histogram(aes(y = ..count..), breaks = seq(0,90, by = 5), alpha = 0.8)+
   lemon::facet_rep_grid(Sex~., scales = 'free_y')+
   Base + scale_x_continuous("Shell height (mm)", expand = c(0,0)) + scale_y_continuous("Count", expand = c(0,0))+
-  theme(legend.position = "none") +MFFill
+  theme(legend.position = "none") +MFFill +theme_f
 #
 Maturity %>% subset(Mature == "I") %>%
   ggplot(aes(SH))+
@@ -299,7 +299,7 @@ SLC_activity %>%
   lemon::facet_rep_grid(Station~.)+
   StaColor+
   scale_y_continuous("Shell height (mm)", expand = c(0,0), limits = c(0, 80))+
-  scale_x_date("", limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
+  scale_x_date("", expand = c(0,0), limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
                date_breaks = "24 months", date_labels = "%b %Y")+
   Base + theme_f)
 #
@@ -310,7 +310,50 @@ SLC_activity %>%
 ####Recruitment data####
 #
 ##Periods of no recruitment
+Rcrt_match <- Rcrt_df %>% filter(Site =="SL-C" & MonYr %in% (SLC_selected_dates %>% filter(Samples == 0))$MonYr) %>%
+  filter(MonYr != "2020-04-01")
+#
+##Mean rcrt rates during no collection time period
+Rcrt_df %>% filter(Site == "LW" & Station == 3) %>%
+  #filter(MonYr >= "2006-09-01" & MonYr <= "2006-10-01") %>%
+  summarise(mean = mean(Mean, na.rm = T))
+##and during next collections
+Rcrt_df %>% filter(Site == "LW" & Station == 1) %>%
+  filter(MonYr == "2006-11-01") %>%
+  summarise(mean = mean(Mean, na.rm = T))
 
 #
+Rcrt_df %>% filter(Site =="SL-N" & MonYr >= "2006-01-01" & MonYr <= "2023-12-31") %>% 
+  mutate(Fill = ifelse(Mean == 0, "fill", "none")) %>% mutate(Fill = replace_na(Fill, "none")) %>%
+  ggplot()+
+  geom_tile(aes(MonYr, y = 20, fill = Fill), height = 40, alpha = 0.2)+
+  geom_rect(data = SLC_Fill_Dates, aes(xmin = from, xmax = to, ymin = -Inf, ymax = Inf), alpha = 0.4)+
+  geom_bar(aes(MonYr, Mean), stat = "summary", fill = "darkblue")+
+  lemon::facet_rep_grid(Station~., scales = "free_y")+
+  scale_fill_manual("", values = c("red", "white"))+
+  scale_y_continuous("Average recruitment (spat/shell)", expand = c(0,0))+
+  scale_x_date("", expand = c(0,0), limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
+               date_breaks = "24 months", date_labels = "%b %Y")+
+  Base + theme_f + theme(legend.position = "none")
 #
 #
+#
+Final_repro <- rbind(SLC_selected_repro %>% filter(MonYr %in% (SLC_selected_dates %>% filter(Samples != 0))$MonYr), 
+                     SLN_selected_repro %>% filter(MonYr %in% (SLN_selected_dates %>% filter(Samples != 0))$MonYr), 
+                     SLS_selected_repro %>% filter(MonYr %in% (SLS_selected_dates %>% filter(Samples != 0))$MonYr),
+                     LXN_selected_repro %>% filter(MonYr %in% (LXN_selected_dates %>% filter(Samples != 0))$MonYr), 
+                     LXS_selected_repro %>% filter(MonYr %in% (LXS_selected_dates %>% filter(Samples != 0))$MonYr), 
+                     LW_selected_repro %>% filter(MonYr %in% (LW_selected_dates %>% filter(Samples != 0))$MonYr), 
+                     CRE_selected_repro %>% filter(MonYr %in% (CRE_selected_dates %>% filter(Samples != 0))$MonYr), 
+                     CRW_selected_repro %>% filter(MonYr %in% (CRW_selected_dates %>% filter(Samples != 0))$MonYr)) %>% drop_na(Final_Stage) 
+Final_repro %>%
+  filter(Final_Stage != 8 & Final_Stage != "M/F") %>%
+  ggplot()+
+  geom_point(aes(MonYr, SH, color = Final_Stage), width = 2)+  
+  geom_point(data = Final_repro %>% filter(Final_Stage != 2 & Final_Stage != 3, Final_Stage != 8 & Final_Stage != "M/F"),
+              aes(MonYr, SH, color = Final_Stage), size = 3, width = 2)+
+  scale_y_continuous("Shell height (mm)", expand = c(0,0), limits = c(0,125))+
+  StaColor+
+  scale_x_date("", expand = c(0,0), limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
+               date_breaks = "24 months", date_labels = "%b %Y")+
+  Base
