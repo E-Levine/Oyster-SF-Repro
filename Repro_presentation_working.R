@@ -288,7 +288,7 @@ SLC_activity %>%
   scale_y_continuous("Shell height (mm)", expand = c(0,0), limits = c(0, 80))+
   scale_x_date("", limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
                date_breaks = "24 months", date_labels = "%b %Y")+
-  Base)
+  Base + theme_f)
 
   
 
