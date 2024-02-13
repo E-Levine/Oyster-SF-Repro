@@ -264,19 +264,31 @@ SLC_activity %>%
 #
 #
 ###Working with SLC as example
-SLC_selected_dates %>% filter(MonYr >= "2008-9-01") %>% drop_na(MonYr)
-SLC_selected_repro %>% 
-  filter(MonYr >= "2008-9-01" & Final_Stage != 8 & Final_Stage!= "M/F") %>% drop_na(MonYr) %>%
-  ggplot(aes(MonYr, SH))+
-  geom_jitter(aes(color = Final_Stage), size = 2, width = 0.3)+
+#Date ranges for fills
+(SLC_Fill_Dates <- cbind(SLC_selected_dates %>% 
+                           filter(MonYr >= "2008-9-01" & MonYr != "2020-04-01" & MonYr != "2020-05-01" & MonYr != "2020-06-01" & MonYr != "2018-08-01") %>% 
+                           drop_na(MonYr) %>% arrange(Station, MonYr) %>%
+                           subset(Samples == 0) %>% dplyr::select(Site, Station, MonYr) %>% mutate("from" = MonYr),
+                         SLC_selected_dates %>% 
+                           filter(MonYr >= "2008-9-01" & MonYr != "2020-04-01" & MonYr != "2020-05-01" & MonYr != "2020-06-01" & MonYr != "2018-08-01") %>% 
+                           drop_na(MonYr) %>% arrange(Station, MonYr) %>%
+                           subset(Samples > 0) %>% dplyr::select(MonYr) %>% rename("to" = MonYr)))
+#
+#
+(SLC_active_plot <- ggplot()+
+  geom_rect(data = SLC_Fill_Dates, aes(xmin = from, xmax = to, ymin = -Inf, ymax = Inf), alpha = 0.4)+
+  geom_jitter(data = SLC_selected_repro %>% 
+                filter(MonYr >= "2008-9-01" & Final_Stage != 8 & Final_Stage!= "M/F") %>% drop_na(MonYr),
+                aes(MonYr, SH, color = Final_Stage), size = 2, width = 5)+
   geom_jitter(data = SLC_selected_repro %>% 
                 filter(MonYr >= "2008-9-01" & (Final_Stage == 4 | Final_Stage == 0)) %>% drop_na(MonYr),
-              aes(color = Final_Stage), size = 3.5, width = 0.3)+
+              aes(MonYr, SH, color = Final_Stage), size = 3.5, width = 5)+
   lemon::facet_rep_grid(Station~.)+
   StaColor+
   scale_y_continuous("Shell height (mm)", expand = c(0,0), limits = c(0, 80))+
-  scale_x_date("Date", limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
-               date_breaks = "20 months", date_labels = "%b %Y")+
-    Base + theme(axis.text.x = element_text(angle = 45))
+  scale_x_date("", limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
+               date_breaks = "24 months", date_labels = "%b %Y")+
+  Base)
+
   
 
