@@ -47,6 +47,7 @@ Stages <- c("0" = "Undifferentiated", "1" = "Developing", "2" = "Ripe/Spawning",
 cbPalette <- c("#666666", "#D55E00", "#E69F00", "#F0E442", "#009E73", "#56B4E9", "#9966FF")
 names(cbPalette) <- levels(Repro_df$Final_Stage)
 StaFill <- scale_fill_manual(name = "Stage", labels = Stages, values = cbPalette, na.value = "#999999")
+StaColor <- scale_color_manual(name = "Stage", labels = Stages, values = cbPalette, na.value = "#999999")
 #
 ##Color to sex
 Sex <- c("F" = "Female", "M" = "Male", "M/F" = "M/F", "Z" = "Undetermined")
@@ -165,10 +166,10 @@ Maturity %>% filter(Final_Stage == "1" & SH < 47) %>%
   Base + scale_x_continuous("Shell height (mm)", expand = c(0,0)) + scale_y_continuous("Count", expand = c(0,0))
 #
 #
-
+#
 ####Repro collections per date####
 #
-##Data frame of full sampling timeframe - remove extra stations from all time sites and extra stations created when filling out CR
+##Data frame of full sampling time frame - remove extra stations from all time sites and extra stations created when filling out CR
 Repro_full <- rbind(Repro_c %>% filter(Estuary != "CR" & Estuary != "TB") %>% droplevels() %>% complete(Year, Month, Site, Station) %>%
                       filter(!(Site == "LW" & Station == "4") & !(Site == "LX-N" & Station == "4") & !(Site == "LX-S" & Station == "4") & 
                                !(Site == "SL-C" & Station == "4") & !(Site == "SL-N" & Station == "4") & !(Site == "SL-S" & Station == "4")), 
@@ -259,3 +260,23 @@ SLC_activity %>%
   #geom_histogram(aes(y = after_stat(count)))
   geom_bar(position = "fill")+
  lemon::facet_rep_grid(Station~.)
+#
+#
+#
+###Working with SLC as example
+SLC_selected_dates %>% filter(MonYr >= "2008-9-01") %>% drop_na(MonYr)
+SLC_selected_repro %>% 
+  filter(MonYr >= "2008-9-01" & Final_Stage != 8 & Final_Stage!= "M/F") %>% drop_na(MonYr) %>%
+  ggplot(aes(MonYr, SH))+
+  geom_jitter(aes(color = Final_Stage), size = 2, width = 0.3)+
+  geom_jitter(data = SLC_selected_repro %>% 
+                filter(MonYr >= "2008-9-01" & (Final_Stage == 4 | Final_Stage == 0)) %>% drop_na(MonYr),
+              aes(color = Final_Stage), size = 3.5, width = 0.3)+
+  lemon::facet_rep_grid(Station~.)+
+  StaColor+
+  scale_y_continuous("Shell height (mm)", expand = c(0,0), limits = c(0, 80))+
+  scale_x_date("Date", limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
+               date_breaks = "20 months", date_labels = "%b %Y")+
+    Base + theme(axis.text.x = element_text(angle = 45))
+  
+
