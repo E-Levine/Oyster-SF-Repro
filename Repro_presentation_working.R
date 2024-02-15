@@ -304,6 +304,18 @@ SLN_activity %>%
   Base + theme_f)
 #
 #
+Repro_Mat_props <- merge(Maturity %>% mutate(Mature = ifelse(Final_Stage == 4 | Final_Stage == 0, "I", "M")) %>% 
+                           dplyr::select(Year, Month, Site, Station, Final_Stage, Mature) %>%
+                           group_by(Year, Month, Site, Station, Mature) %>%
+                           summarise(Count = n()),
+                         Maturity %>% mutate(Mature = ifelse(Final_Stage == 4 | Final_Stage == 0, "I", "M")) %>% 
+                           dplyr::select(Year, Month, Site, Station, Final_Stage, Mature) %>%
+                           group_by(Year, Month, Site, Station) %>%
+                           summarise(Total = n())) %>%
+  mutate(Prop = Count/Total,
+         Year = as.numeric(Year),
+         Month = as.numeric(Month))
+
 #
 #
 #
@@ -337,15 +349,32 @@ Rcrt_df %>% filter(Site =="SL-N" & MonYr >= "2006-01-01" & MonYr <= "2023-12-31"
   Base + theme_f + theme(legend.position = "none")
 #
 #
-#
-Final_repro <- rbind(SLC_selected_repro %>% filter(MonYr %in% (SLC_selected_dates %>% filter(Samples != 0))$MonYr), 
-                     SLN_selected_repro %>% filter(MonYr %in% (SLN_selected_dates %>% filter(Samples != 0))$MonYr), 
-                     SLS_selected_repro %>% filter(MonYr %in% (SLS_selected_dates %>% filter(Samples != 0))$MonYr),
-                     LXN_selected_repro %>% filter(MonYr %in% (LXN_selected_dates %>% filter(Samples != 0))$MonYr), 
-                     LXS_selected_repro %>% filter(MonYr %in% (LXS_selected_dates %>% filter(Samples != 0))$MonYr), 
-                     LW_selected_repro %>% filter(MonYr %in% (LW_selected_dates %>% filter(Samples != 0))$MonYr), 
-                     CRE_selected_repro %>% filter(MonYr %in% (CRE_selected_dates %>% filter(Samples != 0))$MonYr), 
-                     CRW_selected_repro %>% filter(MonYr %in% (CRW_selected_dates %>% filter(Samples != 0))$MonYr)) %>% drop_na(Final_Stage) 
+###DF of all final selected repro data and difference in days
+Final_repro <- rbind(left_join(SLC_selected_repro %>% filter(MonYr %in% (SLC_selected_dates %>% filter(Samples != 0))$MonYr),
+                               SLC_activity %>% arrange(Station, MonYr) %>% #Arrange by MonYr and Station for proper day-diff cals, get MonYr as number, calc difference in days
+                                 mutate(MonYrNum = as.numeric(MonYr)) %>% mutate(across(MonYrNum, ~.- lag(.), .names = "Days_diff")) %>%  dplyr::select(MonYr:Station, Days_diff) %>% filter(Days_diff > 0)), 
+                     left_join(SLN_selected_repro %>% filter(MonYr %in% (SLN_selected_dates %>% filter(Samples != 0))$MonYr), 
+                               SLN_activity %>% arrange(Station, MonYr) %>% 
+                                 mutate(MonYrNum = as.numeric(MonYr)) %>% mutate(across(MonYrNum, ~.- lag(.), .names = "Days_diff")) %>%  dplyr::select(MonYr:Station, Days_diff) %>% filter(Days_diff > 0)), 
+                     left_join(SLS_selected_repro %>% filter(MonYr %in% (SLS_selected_dates %>% filter(Samples != 0))$MonYr),
+                               SLS_activity %>% arrange(Station, MonYr) %>% 
+                                 mutate(MonYrNum = as.numeric(MonYr)) %>% mutate(across(MonYrNum, ~.- lag(.), .names = "Days_diff")) %>%  dplyr::select(MonYr:Station, Days_diff) %>% filter(Days_diff > 0)),
+                     left_join(LXN_selected_repro %>% filter(MonYr %in% (LXN_selected_dates %>% filter(Samples != 0))$MonYr), 
+                               LXN_activity %>% arrange(Station, MonYr) %>% 
+                                 mutate(MonYrNum = as.numeric(MonYr)) %>% mutate(across(MonYrNum, ~.- lag(.), .names = "Days_diff")) %>%  dplyr::select(MonYr:Station, Days_diff) %>% filter(Days_diff > 0)), 
+                     left_join(LXS_selected_repro %>% filter(MonYr %in% (LXS_selected_dates %>% filter(Samples != 0))$MonYr), 
+                               LXS_activity %>% arrange(Station, MonYr) %>% 
+                                 mutate(MonYrNum = as.numeric(MonYr)) %>% mutate(across(MonYrNum, ~.- lag(.), .names = "Days_diff")) %>%  dplyr::select(MonYr:Station, Days_diff) %>% filter(Days_diff > 0)), 
+                     left_join(LW_selected_repro %>% filter(MonYr %in% (LW_selected_dates %>% filter(Samples != 0))$MonYr), 
+                               LW_activity %>% arrange(Station, MonYr) %>% 
+                                 mutate(MonYrNum = as.numeric(MonYr)) %>% mutate(across(MonYrNum, ~.- lag(.), .names = "Days_diff")) %>%  dplyr::select(MonYr:Station, Days_diff) %>% filter(Days_diff > 0)), 
+                     left_join(CRE_selected_repro %>% filter(MonYr %in% (CRE_selected_dates %>% filter(Samples != 0))$MonYr), 
+                               CRE_activity %>% arrange(Station, MonYr) %>% 
+                                 mutate(MonYrNum = as.numeric(MonYr)) %>% mutate(across(MonYrNum, ~.- lag(.), .names = "Days_diff")) %>%  dplyr::select(MonYr:Station, Days_diff) %>% filter(Days_diff > 0)), 
+                     left_join(CRW_selected_repro %>% filter(MonYr %in% (CRW_selected_dates %>% filter(Samples != 0))$MonYr),
+                               CRW_activity %>% arrange(Station, MonYr) %>% 
+                                 mutate(MonYrNum = as.numeric(MonYr)) %>% mutate(across(MonYrNum, ~.- lag(.), .names = "Days_diff")) %>%  dplyr::select(MonYr:Station, Days_diff) %>% filter(Days_diff > 0))) %>% 
+  drop_na(Final_Stage) %>% filter(MonYr != "2020-06-01") #Remove Covid-related samples
 Final_repro %>%
   filter(Final_Stage != 8 & Final_Stage != "M/F") %>%
   ggplot()+
@@ -385,8 +414,124 @@ F_repro_mat %>%
   ggplot(aes(Site, group = Poss_Im, fill = Poss_Im))+
   geom_bar(position = "fill")
 #
-SLN_activity %>% 
-  ggplot(aes(MonYr, group = Active, fill = Active))+
-  #geom_histogram(aes(y = after_stat(count)))
-  geom_bar(position = "fill")+
-  lemon::facet_rep_grid(Station~.)
+F_repro_mat %>% drop_na(Days_diff) %>%
+  ggplot()+
+  geom_point(aes(Days_diff, SH,color = Final_Stage))+
+  StaColor
+#
+#
+###Lining up rcrt rates with no repro collections - load df of Events of missing repro samples
+No_repro_events <- read.csv("../CSV/Dermo_repro/CERP_no_repro_events.csv")
+No_repro_events <- No_repro_events %>% mutate(MonYr = as.Date(MonYr, fiormat = "%y-%m-%d"),
+                                              Station = as.character(Station))
+#Select dates from rcrt data that match event dates
+t1 <- left_join(Rcrt_df %>% group_by(Site, Station), 
+          No_repro_events %>% group_by(Site, Station)) %>% filter(!is.na(Event))
+#Determine mean rcrt rate during no repro sample events
+t2 <- t1 %>% group_by(Site, Station, Event) %>% summarise(meanRcrt = mean(Mean, na.rm = T))
+#Assign Event ID to next most recent repro sample collected
+t3 <- left_join(Final_repro %>% group_by(Site, Station),
+                #Need next collection dates after no collections
+                No_repro_events %>% group_by(Site, Station, Event) %>% slice(n()) %>% mutate(MonYr = MonYr + months(1))) %>%
+  drop_na(Event)
+#Final data frame relating time diff of no repro samples with mean rcrt during event 
+(Rcrt_repro <- full_join(t2, 
+                        t3 %>% dplyr::select(Site, Station, Event, Days_diff, Final_Stage)))
+#
+Rcrt_repro %>% filter(Final_Stage != 8 & Final_Stage != "M/F") %>%
+  ggplot()+
+  geom_jitter(aes(Days_diff, meanRcrt, color = Final_Stage, size = Final_Stage), height = 0.25)+
+  scale_size_manual("Stage", labels = Stages, values = c(4, 2, 2, 2, 3))+
+  scale_x_continuous("Number of days since last collection", expand = c(0,0), limits = c(0,1060))+
+  scale_y_continuous("Mean recrtuiment during time period (spat/shell)", limits = c(0, 5), expand = c(0,0))+
+  StaColor+ Base
+#
+#
+#
+###No repro, no spat
+ReproSpat_zeros <- function(df){
+  #Find unique values
+  Site_list <- unique(df$Site)
+  Station_list <-unique(df$Station)
+  NoRepro_NoRcrt <- data.frame()
+  #loop
+  for (j in Site_list){
+    for (i in Station_list) {
+      tempdf <- df[df$Site == j & df$Station == i, ]
+      tempdf_i <- tempdf %>% filter(MonYr %in% (Repro_samples %>% filter(Site == j & Station == i & Samples == 0))$MonYr) %>%
+      filter(Mean == 0)
+      NoRepro_NoRcrt <- rbind(NoRepro_NoRcrt, tempdf_i)
+    }
+  }
+  return(NoRepro_NoRcrt)
+}
+(NoReproSpat <- ReproSpat_zeros(Rcrt_df) %>% mutate(Type = 1))
+#
+Rcrt_df2 <- left_join(Rcrt_df, NoReproSpat)
+#
+#
+ReproSpat <- full_join(Repro_samples, Rcrt_df) %>% drop_na(Mean) %>%
+  mutate(Type = ifelse(Samples == 0 & Mean == 0, "NR&NS", 
+                       ifelse(Samples == 0 & Mean > 0, "NR&S", 
+                              ifelse(Samples > 0 & Mean > 0, "R&S", 
+                                     ifelse(Samples > 0 & Mean == 0, "R&NS", NA))))) %>%
+  left_join(Repro_Mat_props) %>% mutate(Mature = ifelse(is.na(Mature), "Z", Mature))
+#
+ReproSpat %>% filter(Site == "CR-E" & Station == 1 & Mature != "I") %>%
+  ggplot()+
+  geom_tile(aes(MonYr, y = 0.5, fill = Type), height = 1, alpha = 0.2)+
+  geom_point(aes(MonYr, Prop))+
+  geom_line(aes(MonYr, Prop, group = 1))
+
+ReproSpat %>% filter(Mature != "I") %>%
+  ggplot()+
+  geom_tile(aes(MonYr, y = 0.5, fill = Type), height = 1, alpha = 0.2)+
+  geom_point(aes(MonYr, Prop))+
+  geom_line(aes(MonYr, Prop, group = 1))+
+  lemon::facet_rep_grid(Site~Station)
+  #
+#
+#####EXTRA WORKING####
+find_next_non_zero <- function(df, start_index) {
+  # Find the indices of non-zero values after the start_index
+  #non_zero_indices <- which(df[["Mean"]] >  0 & df[["Mean"]] != NA)[which(df[["Mean"]] >  0 & df[["Mean"]] != NA) > start_index]
+  # Return the first non-zero value after the start_index, or NA if none exists
+  #return(ifelse(length(non_zero_indices) >  0, df[["Mean"]][min(non_zero_indices)], NA))
+  df2 <- df
+  #Vector indicating presence of NRNS type
+  starts <- df2$Type %in% "NRNS"
+  indices <- rep(NA, nrow(df2))
+  #Find next positive value after starts
+  df2$NextPost <- with(df2, ifelse(starts, Type, NA))
+  df2$NextPost <- with(df2, ifelse(is.na(lag(NextPost)), NextPost, NA))
+  df2$NextPost <- cummax(df2$NextPost)
+  #Convert to numeric
+  
+}#
+#
+#
+#
+#temp line: Station_df_i <- filter(Site_repro, Station == i)
+Station_rle <- rle(Station_df_i$Samples == 0) #Identify each first instance of 0 or non-zero and how many rows until next change
+Station_first <- Station_rle$values == 0 & Station_rle$lengths > 1 #Select the first instance of each sequence of 0s
+Station_index <- (cumsum(Station_rle$lengths)+1)[Station_first] #Get the index of the first instance 
+Station_zeros <- Station_df_i[Station_index,] #Select the first instance of each sequence of 0s
+
+temp <- Rcrt_df2 %>% filter(Site == "SL-S" & Station == 1)
+temp_rle <- rle(temp$Type == 1)
+temp_NRNS <- temp_rle$values == 1 & temp_rle$lengths > 1 #longer than 1 month
+temp_index <- (cumsum(temp_rle$lengths)+1)[temp_NRNS]
+temp[temp_index,]
+
+starts <- temp_index
+indices <- rep(NA, nrow(temp))
+for (i in starts){
+  next_value <- min(which(temp$Mean >0)[which(temp$Mean >0) > i])
+  indices[i] <- if (!is.na(next_value)) temp$Mean[next_value] else NA
+}
+temp$NextPost <- indices
+
+(Rcrt_df2$NextPost <- with(Rcrt_df2, ifelse(Rcrt_df2$Type %in% "NRNS", Mean, NA)))
+(Rcrt_df2$NextPost <- with(Rcrt_df2, ifelse(is.na(lag(NextPost)), NextPost, NA)))
+Rcrt_df2$NextPost <- as.numeric(cummax(Rcrt_df2$NextPost))
+
