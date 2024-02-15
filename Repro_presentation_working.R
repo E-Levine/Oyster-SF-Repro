@@ -8,7 +8,7 @@ pacman::p_load(plyr, tidyverse, #Df manipulation,
                rstatix, rcompanion, #Summary stats & multiple comparisons
                zoo, lubridate, #Dates and times
                readxl, writexl, #Reading excel files
-               janitor, lincar, scales, #Basic analyses
+               janitor, scales, #Basic analyses
                FSA, #lencat
                emmeans, multcomp, ggpubr, #Arranging ggplots
                install = TRUE)
@@ -268,7 +268,7 @@ SLC_selected_dates %>%
   geom_point(size = 3)+
   theme_classic()
 #Histogram plot of blank spaces for no collections then Y/N fill of activity until all active again. Ave sizes corresponding to activity changes. 
-SLC_activity %>% 
+SLN_activity %>% 
   ggplot(aes(MonYr, group = Active, fill = Active))+
   #geom_histogram(aes(y = after_stat(count)))
   geom_bar(position = "fill")+
@@ -322,15 +322,15 @@ Rcrt_df %>% filter(Site == "LW" & Station == 1) %>%
   filter(MonYr == "2006-11-01") %>%
   summarise(mean = mean(Mean, na.rm = T))
 
-#
+#Plot of rcrt rates (red = no rcrt). Gray = no repro samples.
 Rcrt_df %>% filter(Site =="SL-N" & MonYr >= "2006-01-01" & MonYr <= "2023-12-31") %>% 
   mutate(Fill = ifelse(Mean == 0, "fill", "none")) %>% mutate(Fill = replace_na(Fill, "none")) %>%
   ggplot()+
-  geom_tile(aes(MonYr, y = 20, fill = Fill), height = 40, alpha = 0.2)+
+  geom_tile(aes(MonYr, y = 10, fill = Fill), height = 20, alpha = 0.2)+
   geom_rect(data = SLC_Fill_Dates, aes(xmin = from, xmax = to, ymin = -Inf, ymax = Inf), alpha = 0.4)+
   geom_bar(aes(MonYr, Mean), stat = "summary", fill = "darkblue")+
   lemon::facet_rep_grid(Station~., scales = "free_y")+
-  scale_fill_manual("", values = c("red", "white"))+
+  scale_fill_manual("", values = c("red", "white"))+ #Red = no rcrt
   scale_y_continuous("Average recruitment (spat/shell)", expand = c(0,0))+
   scale_x_date("", expand = c(0,0), limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
                date_breaks = "24 months", date_labels = "%b %Y")+
@@ -357,3 +357,36 @@ Final_repro %>%
   scale_x_date("", expand = c(0,0), limits = c(as.Date("2006-01-01"), as.Date("2023-12-31")), 
                date_breaks = "24 months", date_labels = "%b %Y")+
   Base
+#
+#
+Final_repro %>%
+  filter(Final_Stage != 8 & Final_Stage != "M/F" & (Final_Stage == 2 | Final_Stage == 3 | Final_Stage == 1)) %>%
+  ggplot()+
+  geom_jitter(aes(as.numeric(Month), SH, color = Final_Stage), width = 0.25)+
+  geom_jitter(data = Final_repro %>% filter(Final_Stage != 2 & Final_Stage != 3 & Final_Stage != 1 & Final_Stage != 8 & Final_Stage != "M/F"),
+             aes(as.numeric(Month), SH, color = Final_Stage), size = 3, width = 0.25)+
+  StaColor+
+  scale_y_continuous(limits = c(0, 35))+
+  Base
+#
+#
+#Maturity vs shell heights 
+F_repro_mat <- Final_repro %>% filter(Final_Stage != "M/F" & Final_Stage != 8) %>%
+  mutate(Poss_Im = factor(ifelse(Final_Stage == 0 | Final_Stage == 4, "Indifferent", "Mature"), levels = c("Indifferent", "Mature")))
+F_repro_mat %>%
+  ggplot()+
+  geom_jitter(aes(Poss_Im, SH, color = Final_Stage, size = Final_Stage), width = 0.25)+
+  scale_y_continuous("Shell height (mm)", expand = c(0,0), limits = c(0,125))+
+  scale_x_discrete("Maturity")+
+  scale_size_manual("Stage", labels = Stages, values = c(4, 2, 2, 2, 2))+
+  StaColor + Base
+#
+F_repro_mat %>% 
+  ggplot(aes(Site, group = Poss_Im, fill = Poss_Im))+
+  geom_bar(position = "fill")
+#
+SLN_activity %>% 
+  ggplot(aes(MonYr, group = Active, fill = Active))+
+  #geom_histogram(aes(y = after_stat(count)))
+  geom_bar(position = "fill")+
+  lemon::facet_rep_grid(Station~.)
