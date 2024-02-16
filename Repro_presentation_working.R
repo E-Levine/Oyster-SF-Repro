@@ -303,16 +303,28 @@ SLN_activity %>%
                date_breaks = "24 months", date_labels = "%b %Y")+
   Base + theme_f)
 #
-#
+#Counts and prop with I/M & M = 0/4 (Mature, Count, Total, Prop) AND I/M & M = 0,1,4 (Mature2, Count2, Total2, Prop2)
 Repro_Mat_props <- merge(Maturity %>% mutate(Mature = ifelse(Final_Stage == 4 | Final_Stage == 0, "I", "M")) %>% 
-                           dplyr::select(Year, Month, Site, Station, Final_Stage, Mature) %>%
-                           group_by(Year, Month, Site, Station, Mature) %>%
-                           summarise(Count = n()),
-                         Maturity %>% mutate(Mature = ifelse(Final_Stage == 4 | Final_Stage == 0, "I", "M")) %>% 
-                           dplyr::select(Year, Month, Site, Station, Final_Stage, Mature) %>%
-                           group_by(Year, Month, Site, Station) %>%
-                           summarise(Total = n())) %>%
+                                     dplyr::select(Year, Month, Site, Station, Final_Stage, Mature) %>%
+                                     group_by(Year, Month, Site, Station, Mature) %>%
+                                     summarise(Count = n()),
+                                   Maturity %>% mutate(Mature = ifelse(Final_Stage == 4 | Final_Stage == 0, "I", "M")) %>% 
+                                     dplyr::select(Year, Month, Site, Station, Final_Stage, Mature) %>%
+                                     group_by(Year, Month, Site, Station) %>%
+                                     summarise(Total = n())) %>%
   mutate(Prop = Count/Total,
+         Year = as.numeric(Year),
+         Month = as.numeric(Month))
+#
+Repro_Mat_props2 <- merge(Maturity %>% mutate(Mature2 = ifelse(Final_Stage == 4 | Final_Stage == 0 | Final_Stage == 1, "I", "M")) %>% 
+                            dplyr::select(Year, Month, Site, Station, Final_Stage, Mature2) %>%
+                            group_by(Year, Month, Site, Station, Mature2) %>%
+                            summarise(Count2 = n()),
+                          Maturity %>% mutate(Mature2 = ifelse(Final_Stage == 4 | Final_Stage == 0 | Final_Stage == 1, "I", "M")) %>% 
+                            dplyr::select(Year, Month, Site, Station, Final_Stage, Mature2) %>%
+                            group_by(Year, Month, Site, Station) %>%
+                            summarise(Total2 = n())) %>%
+  mutate(Prop2 = Count2/Total2,
          Year = as.numeric(Year),
          Month = as.numeric(Month))
 
@@ -420,6 +432,8 @@ F_repro_mat %>% drop_na(Days_diff) %>%
   StaColor
 #
 #
+####Sample comparisons####
+#
 ###Lining up rcrt rates with no repro collections - load df of Events of missing repro samples
 No_repro_events <- read.csv("../CSV/Dermo_repro/CERP_no_repro_events.csv")
 No_repro_events <- No_repro_events %>% mutate(MonYr = as.Date(MonYr, fiormat = "%y-%m-%d"),
@@ -467,7 +481,7 @@ ReproSpat_zeros <- function(df){
 }
 (NoReproSpat <- ReproSpat_zeros(Rcrt_df) %>% mutate(Type = 1))
 #
-Rcrt_df2 <- left_join(Rcrt_df, NoReproSpat)
+Rcrt_df2 <- left_join(Rcrt_df, NoReproSpat) 
 #
 #
 ReproSpat <- full_join(Repro_samples, Rcrt_df) %>% drop_na(Mean) %>%
@@ -477,18 +491,34 @@ ReproSpat <- full_join(Repro_samples, Rcrt_df) %>% drop_na(Mean) %>%
                                      ifelse(Samples > 0 & Mean == 0, "R&NS", NA))))) %>%
   left_join(Repro_Mat_props) %>% mutate(Mature = ifelse(is.na(Mature), "Z", Mature))
 #
+ReproSpat2 <- full_join(Repro_samples, Rcrt_df) %>% drop_na(Mean) %>%
+  mutate(Type = ifelse(Samples == 0 & Mean == 0, "NR&NS", 
+                       ifelse(Samples == 0 & Mean > 0, "NR&S", 
+                              ifelse(Samples > 0 & Mean > 0, "R&S", 
+                                     ifelse(Samples > 0 & Mean == 0, "R&NS", NA))))) %>%
+  left_join(Repro_Mat_props2) %>% mutate(Mature2 = ifelse(is.na(Mature2), "Z", Mature2))
+#
+ggarrange(
 ReproSpat %>% filter(Site == "CR-E" & Station == 1 & Mature != "I") %>%
   ggplot()+
   geom_tile(aes(MonYr, y = 0.5, fill = Type), height = 1, alpha = 0.2)+
-  geom_point(aes(MonYr, Prop))+
-  geom_line(aes(MonYr, Prop, group = 1))
+  geom_point(aes(MonYr, Prop), size = 2)+
+  geom_line(aes(MonYr, Prop, group = 1)),
+ReproSpat2 %>% filter(Site == "CR-E" & Station == 1 & Mature2 != "I") %>%
+  ggplot()+
+  geom_tile(aes(MonYr, y = 0.5, fill = Type), height = 1, alpha = 0.2)+
+  geom_point(aes(MonYr, Prop2), color = "red")+
+  geom_line(aes(MonYr, Prop2, group = 1), color = "red"),
+ncol = 1)
 
-ReproSpat %>% filter(Mature != "I") %>%
+ReproSpat %>% filter(Mature != "I", Site == "SL-C") %>%
   ggplot()+
   geom_tile(aes(MonYr, y = 0.5, fill = Type), height = 1, alpha = 0.2)+
   geom_point(aes(MonYr, Prop))+
   geom_line(aes(MonYr, Prop, group = 1))+
-  lemon::facet_rep_grid(Site~Station)
+  geom_point(data = ReproSpat2 %>% filter(Mature2 != "I", Site == "SL-C"), aes(MonYr, Prop2), color = "red")+
+  geom_line(data = ReproSpat2 %>% filter(Mature2 != "I", Site == "SL-C"), aes(MonYr, Prop2, group = 1), color = "red")+
+  lemon::facet_rep_grid(Station~.)
   #
 #
 #####EXTRA WORKING####
