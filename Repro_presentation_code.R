@@ -63,6 +63,16 @@ names(cbPalette) <- levels(Repro_df$Final_Stage)
 StaFill <- scale_fill_manual(name = "Stage", labels = Stages, values = cbPalette, na.value = "#999999")
 StaColor <- scale_color_manual(name = "Stage", labels = Stages, values = cbPalette, na.value = "#999999")
 #
+#
+#Map color to Sampling
+Sampling <- c("NRS&NS" = "No repro / 0 spat", "NRS&NSS" = "No repro / No spat", "NRS&S" = "No repro / Spat", "R&NS" = "Repro / 0 Spat", "R&NSS" = "Repro / No Spat", "R&S" = "Repro / Spat")
+SaPalette <- c("#E69F00", "#FF0000", "#009E73", "#9966FF", "#56B4E9", "#666666")
+names(SaPalette) <- levels(as.factor(ReproSpat$Type))
+SampFill <- scale_fill_manual(name = "Sampling", labels = Sampling, values = SaPalette, na.value = "#999999")
+SampColor <- scale_color_manual(name = "Sampling", labels = Sampling, values = SaPalette, na.value = "#999999")
+Sample_order <- c("NRS&NSS", "NRS&NS", "NRS&S", "R&NSS", "R&NS", "R&S")
+#
+#
 ##Color to sex
 Sex <- c("F" = "Female", "M" = "Male", "M/F" = "M/F", "Z" = "Undetermined")
 color_og <- c("#009E73", "#E69F00", "#9966FF", "#666666")
@@ -244,6 +254,8 @@ mat_all %>%
   theme(legend.text = element_text(size = 11))
 #
 #
+####Repro collections data####
+#
 ####Repro collections per date######Data frame of full sampling time frame - remove extra stations from all time sites and extra stations created when filling out CR
 Repro_full <- rbind(Repro_c %>% filter(Estuary != "CR" & Estuary != "TB") %>% droplevels() %>% complete(Year, Month, Site, Station) %>%
                       filter(!(Site == "LW" & Station == "4") & !(Site == "LX-N" & Station == "4") & !(Site == "LX-S" & Station == "4") & 
@@ -345,34 +357,153 @@ Repro_activity %>% filter(Site == "SL-C") %>%
 #
 #
 #Counts and prop with I/M & M = 0/4 (Mature, Count, Total, Prop) AND I/M & M = 0,1,4 (Mature2, Count2, Total2, Prop2)
+#Function to complete maturity levels - change if Mature/Count column name changes
+Complete_Mat <- function(df){
+  df1 <- data.frame()
+  for (i in unique(df$Site)) {
+    df3 <- df %>%  ungroup() %>% subset(Site == i) %>% droplevels() %>%
+      complete(Year, Month, Site, Station, Mature, fill = list(Count = -1))
+    
+    df1 <- rbind(df1, df3)
+  }
+  return(df1)
+}
+#
+#
 Repro_Mat_props <- merge(Maturity %>% mutate(Mature = ifelse(Final_Stage == 4 | Final_Stage == 0, "I", "M")) %>% 
                            dplyr::select(Year, Month, Site, Station, Final_Stage, Mature) %>%
                            group_by(Year, Month, Site, Station, Mature) %>%
-                           summarise(Count = n()),
+                           summarise(Count = n()) %>% 
+                           Complete_Mat(),
                          Maturity %>% mutate(Mature = ifelse(Final_Stage == 4 | Final_Stage == 0, "I", "M")) %>% 
                            dplyr::select(Year, Month, Site, Station, Final_Stage, Mature) %>%
                            group_by(Year, Month, Site, Station) %>%
                            summarise(Total = n())) %>%
   mutate(Prop = Count/Total,
          Year = as.numeric(Year),
-         Month = as.numeric(Month))
+         Month = as.numeric(Month)) %>% mutate(Prop = case_when(Prop <0 ~ 0, TRUE ~ Prop))
 #
 head(Repro_Mat_props)
 #
 Repro_Mat_props2 <- merge(Maturity %>% mutate(Mature2 = ifelse(Final_Stage == 4 | Final_Stage == 0 | Final_Stage == 1, "I", "M")) %>% 
                             dplyr::select(Year, Month, Site, Station, Final_Stage, Mature2) %>%
                             group_by(Year, Month, Site, Station, Mature2) %>%
-                            summarise(Count2 = n()),
+                            summarise(Count2 = n()) %>%
+                            Complete_Mat(),
                           Maturity %>% mutate(Mature2 = ifelse(Final_Stage == 4 | Final_Stage == 0 | Final_Stage == 1, "I", "M")) %>% 
                             dplyr::select(Year, Month, Site, Station, Final_Stage, Mature2) %>%
                             group_by(Year, Month, Site, Station) %>%
                             summarise(Total2 = n())) %>%
   mutate(Prop2 = Count2/Total2,
          Year = as.numeric(Year),
-         Month = as.numeric(Month))
+         Month = as.numeric(Month)) %>% mutate(Prop2 = case_when(Prop2 <0 ~ 0, TRUE ~ Prop2))
 #
 head(Repro_Mat_props2)
 #
 #
 #
+#MonYr and sampling schema (Repro & Spat) with Count and Prop Mature samples
+ReproSpat <- full_join(Repro_samples, Rcrt_df) %>% 
+  mutate(Site = as.factor(Site),
+         Type = case_when(Samples == 0 & Mean == 0 ~ "NRS&NS", 
+                          Samples == 0 & Mean > 0  ~ "NRS&S",
+                          Samples > 0 & Mean > 0 ~ "R&S",
+                          Samples > 0 & Mean == 0 ~ "R&NS",
+                          Samples > 0 & is.na(Mean) ~ "R&NSS",
+                          Samples == 0 & is.na(Mean) ~ "NRS&NSS",
+                          TRUE ~ NA)) %>%               
+  left_join(Repro_Mat_props) %>% mutate(Mature = ifelse(is.na(Mature), "Z", Mature),
+                                        Type = fct_relevel(Type, Sample_order))
 #
+ReproSpat2 <- full_join(Repro_samples, Rcrt_df) %>% 
+  mutate(Site = as.factor(Site),
+         Type = case_when(Samples == 0 & Mean == 0 ~ "NRS&NS", 
+                          Samples == 0 & Mean > 0  ~ "NRS&S",
+                          Samples > 0 & Mean > 0 ~ "R&S",
+                          Samples > 0 & Mean == 0 ~ "R&NS",
+                          Samples > 0 & is.na(Mean) ~ "R&NSS",
+                          Samples == 0 & is.na(Mean) ~ "NRS&NSS",
+                          TRUE ~ NA)) %>%  
+  left_join(Repro_Mat_props2) %>% mutate(Mature2 = ifelse(is.na(Mature2), "Z", Mature2),
+                                         Type = fct_relevel(Type, Sample_order))
+#
+ggarrange(
+  ReproSpat %>% filter(Site == "SL-S" & Station == 1 & Mature != "I") %>%
+    ggplot()+
+    geom_tile(aes(MonYr, y = 0.5, fill = Type), height = 1, alpha = 0.3)+
+    geom_point(aes(MonYr, Prop), size = 2)+
+    geom_line(aes(MonYr, Prop, group = 1)) + SampFill + Base,
+  ReproSpat2 %>% filter(Site == "SL-S" & Station == 1 & Mature2 != "I") %>%
+    ggplot()+
+    geom_tile(aes(MonYr, y = 0.5, fill = Type), height = 1, alpha = 0.3)+
+    geom_point(aes(MonYr, Prop2), color = "red")+
+    geom_line(aes(MonYr, Prop2, group = 1), color = "red")+ SampFill + Base,
+  ncol = 1)
+#
+#
+#
+#
+###Working with ReproSpat - checking for full representation of Months/Years
+ReproSpat %>% group_by(Site, Station, Year, Month) %>% filter(Site == "SL-C") %>%
+  summarise(count = n()) %>% pivot_wider(names_from = Month, values_from = count) %>% print(n = Inf)
+#
+##Trying to find last occurance of NRS and first occurance with R samples then select all rows between last and first
+temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 1) %>% mutate(Type = as.factor(Type)))
+rle_NRSNSS <- rle(temp$Type == "NRS&NSS") #Identify runs of Types
+last_NRSNSS <- (cumsum(rle_NRSNSS$lengths))[rle_NRSNSS$values == 1] #Identify last row of each sequence of specified Type
+
+rle_R <- rle(temp$Type == "R&NS" | temp$Type == "R&NSS" | temp$Type == "R&S")
+first_R <- (cumsum(rle_R$lengths)+1)[rle_R$values == 1] #Identify first row of each sequence of specified Type
+
+all_months  <- append(append(append(append(append(first_R, first_R+1), first_R+2), first_R+3), first_R+4), first_R+5) #Get next 5 months of data
+temp[all_months,] %>% arrange(MonYr)
+
+rle_NRSNSS  %>% filter(values == "TRUE")
+#
+#Identidfy upper limit for first_R list
+find_next_higher <- function(seq, val) {
+  for (i in seq_along(seq)) {
+    if (seq[i] > val) {
+      return(seq[i])
+    }
+  }
+  return(NA)  # Return NA if no higher number is found
+}
+# Use the function to find the next higher number
+next_number <- find_next_higher(first_R, last(last_NRSNSS))
+first_R[first_R <= next_number]
+#
+findNextHighest <- function(x) {
+  # Find the index of the next highest number in list2
+  next_highest_index <- which.max(first_R > x)
+  # If there is no such number, return NA
+  if (length(next_highest_index) ==  0) {
+    return(NA)
+  }
+  # Return the next highest number
+  return(first_R[next_highest_index])
+}
+
+# Apply the function to each element of list1, expand to next 5 months of data and append to last list then order all numbers sequentially
+next_highest_list <- sapply(last_NRSNSS[last_NRSNSS <= next_number], findNextHighest)
+final_list <- sort(append(last_NRSNSS, next_highest_list+4))
+
+
+res1 <- ""  
+for (i in seq_along(final_list)) {
+  if (i %%  2 ==  0) {
+    res1 <- paste0(res1, final_list[i], ",")
+  } else {
+    res1 <- paste0(res1, final_list[i], ":")
+  }
+}
+remove_last_x <- function(str) {
+  if (substr(str, nchar(str), nchar(str)) == "," | nchar(str) == ":") {
+    return(substr(str,  1, nchar(str) -  1))
+  } else {
+    return(str)
+  }
+}
+remove_last_x(res1)
+
+
