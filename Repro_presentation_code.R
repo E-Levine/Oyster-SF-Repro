@@ -504,6 +504,30 @@ remove_last_x <- function(str) {
     return(str)
   }
 }
-remove_last_x(res1)
+(rows_needed <- str_split(remove_last_x(res1), pattern = ",") %>% as.data.frame())
+row_numbers <- ""
+for (i in 1:nrow(rows_needed)) { 
+  row <- eval(parse(text =rows_needed[i,]))
+  row_numbers <- append(row_numbers, row)
+}
+row_numbers
+temp[row_numbers,]
 
 
+################
+fill_missing_numbers <- function(sequence) {
+  if (length(sequence) ==  2) {
+    return(seq(as.numeric(sequence[1]), as.numeric(sequence[2])))
+  } else {
+    return(as.numeric(sequence))
+  }
+}
+lapply(str_split(rows_needed, pattern = ","), generate_sequence)
+
+
+paste0("c(", str_replace_all(rows_needed, ",", "), c("), ")")
+generate_sequence <- function(set) {
+  seq(set[1], set[2])
+}
+lapply(rows_needed, generate_sequence)
+list(paste0("c(", str_replace_all(rows_needed, ",", "), c("), ")"))
