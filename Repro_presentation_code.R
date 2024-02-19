@@ -447,22 +447,105 @@ ggarrange(
 ReproSpat %>% group_by(Site, Station, Year, Month) %>% filter(Site == "SL-C") %>%
   summarise(count = n()) %>% pivot_wider(names_from = Month, values_from = count) %>% print(n = Inf)
 #
-##Function to select data between specified type (NRSNSS/NRSNS/NRSS) and next repro collections
-Selected_samples <- function(df, Type){
+##Function to select data between specified type (NRS&NSS/NRS&NS/NRS&S) and next repro collections
+Selected_samples <- function(df, dataType){
   df1 <- data.frame()
+  df2 <- data.frame()
+  #
   for (i in unique(df$Site)){
+    Site_data <- data.frame(df %>% filter(Site == i))
     for (j in unique(df$Station)){
-      temp <- data.frame(df %>% filter(Site == i & Station == j) %>% mutate(Type = as.factor(Type))) #Limit to data to work with
+      Station_data <- data.frame(Site_data %>% filter(Station == j) %>% mutate(Type = as.factor(Type))) #Limit to data to work with
+      
+      #Identify periods of no repro data of specified Type
+      rle_NRSNSS <- rle(Station_data$Type == dataType) #Identify runs of Types
+      last_NRSNSS <- (cumsum(rle_NRSNSS$lengths))[rle_NRSNSS$values == 1] #Identify last row of each sequence of specified Type
+      
+      #Identify periods with repro collections
+      rle_R <- rle(Station_data$Type == "R&NS" | Station_data$Type == "R&NSS" | Station_data$Type == "R&S") #Identify when repro is collected
+      first_R <- (cumsum(rle_R$lengths)+1)[rle_R$values == 0] #Identify first row of each sequence of specified Type
+      
+      #Find upper limit for first_R list based on no repro data
+      find_next_higher <- function(seq, val) {
+        for (h in seq_along(seq)) {
+          if (seq[h] > val) {
+            return(seq[h])
+          }
+        }
+        return(NA)  # Return NA if no higher number is found
+      }
+      next_number <- find_next_higher(first_R, last(last_NRSNSS))
+      first_R <- first_R[first_R <= next_number] #Subset to proper data
+      
+      # Apply function to each element of list1, expand to next 5 months (rows) of data and append to last list then order all numbers sequentially
+      findNextHighest <- function(x) {
+        # Find the index of the next highest number in list2
+        next_highest_index <- which.max(first_R > x)
+        # If there is no such number, return NA
+        if (length(next_highest_index) ==  0) {
+          return(NA)
+        }
+        # Return the next highest number
+        return(first_R[next_highest_index])
+      }
+      next_highest_list <- sapply(last_NRSNSS[last_NRSNSS <= next_number], findNextHighest)
+      final_list <- c()
+      # Loop over the indices of the lists
+      for (m in seq_along(last_NRSNSS)) {
+        # Append the element from list1
+        final_list <- append(final_list, last_NRSNSS[m])
+        
+        # Append the element from list2
+        final_list <- append(final_list, next_highest_list[m]+4)
+      }
+      
+      #Empty list and function to add colon and commas between row numbers 
+      res1 <- ""  
+      for (k in seq_along(final_list)) {
+        if (k %%  2 ==  0) {
+          res1 <- paste0(res1, final_list[k], ",")
+        } else {
+          res1 <- paste0(res1, final_list[k], ":")
+        }
+      }
+      #Remove any extra comma or colon at the end of the string
+      remove_last_x <- function(res1) {
+        if (substr(res1, nchar(res1), nchar(res1)) == "," | nchar(res1) == ":") {
+          return(substr(res1,  1, nchar(res1) -  1))
+        } else {
+          return(res1)
+        }
+      }
+      res1 <- remove_last_x(res1)
+      
+      #Get all rows numbers between each range of numbers
+      row_numbers <- ""
+      for (l in 1:nrow(rows_needed)) { 
+        row <- eval(parse(text =rows_needed[l,]))
+        row_numbers <- append(row_numbers, row)
+      }
+      row_numbers
+      #Subset working df to desired rows
+      df3 <- Station_data[row_numbers %>% unique(),]
+      df2 <- rbind(df2, df3)
     }
+    df1 <- rbind(df1, df2)
   }
+  return(df1)
 }
+#
+test <- Selected_samples(ReproSpat %>% filter(Site == "SL-C"), "NRS&NSS")
+
+
+
+
 ##Trying to find last occurrence of NRS and first occurrence with R samples then select all rows between last and first
-temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 1) %>% mutate(Type = as.factor(Type))) #Data to work with
+temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 2) %>% mutate(Type = as.factor(Type))) #Data to work with
 rle_NRSNSS <- rle(temp$Type == "NRS&NSS") #Identify runs of Types
 last_NRSNSS <- (cumsum(rle_NRSNSS$lengths))[rle_NRSNSS$values == 1] #Identify last row of each sequence of specified Type
 #
 rle_R <- rle(temp$Type == "R&NS" | temp$Type == "R&NSS" | temp$Type == "R&S") #Identify when repro is collected
-first_R <- (cumsum(rle_R$lengths)+1)[rle_R$values == 1] #Identify first row of each sequence of specified Type
+first_R <- (cumsum(rle_R$lengths)+1)[rle_R$values == 0] #Identify first row of each sequence of specified Type
 #
 #Identify upper limit for first_R list
 find_next_higher <- function(seq, val) {
@@ -475,7 +558,7 @@ find_next_higher <- function(seq, val) {
 }
 # Use the function to find the next higher number
 next_number <- find_next_higher(first_R, last(last_NRSNSS))
-first_R[first_R <= next_number] #Subset to proper data
+first_R <- first_R[first_R <= next_number] #Subset to proper data
 #
 ##Function to find the next highest number in first_R after each sequence of no repro samples (last_NRSNSS)
 findNextHighest <- function(x) {
@@ -492,14 +575,26 @@ findNextHighest <- function(x) {
 # Apply the function to each element of list1, expand to next 5 months (rows) of data and append to last list then order all numbers sequentially
 next_highest_list <- sapply(last_NRSNSS[last_NRSNSS <= next_number], findNextHighest)
 final_list <- sort(append(last_NRSNSS, next_highest_list+4))
+#as.list(data.frame(do.call(rbind, Map(rbind, last_NRSNSS, next_highest_list+4))))
+# Initialize an empty list to hold the merged elements
+merged_list <- c()
+# Loop over the indices of the lists
+for (i in seq_along(last_NRSNSS)) {
+  # Append the element from list1
+  merged_list <- append(merged_list, last_NRSNSS[i])
+  
+  # Append the element from list2
+  merged_list <- append(merged_list, next_highest_list[i]+4)
+}
+
 
 #Function to add colon and commas between numbers 
 res1 <- ""  
-for (i in seq_along(final_list)) {
+for (i in seq_along(merged_list)) {
   if (i %%  2 ==  0) {
-    res1 <- paste0(res1, final_list[i], ",")
+    res1 <- paste0(res1, merged_list[i], ",")
   } else {
-    res1 <- paste0(res1, final_list[i], ":")
+    res1 <- paste0(res1, merged_list[i], ":")
   }
 }
 #remove any extra characters at the end of the string
@@ -520,9 +615,9 @@ for (i in 1:nrow(rows_needed)) {
   row <- eval(parse(text =rows_needed[i,]))
   row_numbers <- append(row_numbers, row)
 }
-row_numbers
+row_numbers %>% unique()
 #Subset working df to desired rows
-temp[row_numbers,]
+tempor <- temp[paste(row_numbers %>% unique()),]
 
 
 ################
