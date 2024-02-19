@@ -64,7 +64,7 @@ StaFill <- scale_fill_manual(name = "Stage", labels = Stages, values = cbPalette
 StaColor <- scale_color_manual(name = "Stage", labels = Stages, values = cbPalette, na.value = "#999999")
 #
 #
-#Map color to Sampling
+#Map color to Sampling - run after making ReproSpat df (line 406)
 Sampling <- c("NRS&NS" = "No repro / 0 spat", "NRS&NSS" = "No repro / No spat", "NRS&S" = "No repro / Spat", "R&NS" = "Repro / 0 Spat", "R&NSS" = "Repro / No Spat", "R&S" = "Repro / Spat")
 SaPalette <- c("#E69F00", "#FF0000", "#009E73", "#9966FF", "#56B4E9", "#666666")
 names(SaPalette) <- levels(as.factor(ReproSpat$Type))
@@ -369,7 +369,7 @@ Complete_Mat <- function(df){
   return(df1)
 }
 #
-#
+#####
 Repro_Mat_props <- merge(Maturity %>% mutate(Mature = ifelse(Final_Stage == 4 | Final_Stage == 0, "I", "M")) %>% 
                            dplyr::select(Year, Month, Site, Station, Final_Stage, Mature) %>%
                            group_by(Year, Month, Site, Station, Mature) %>%
@@ -412,8 +412,8 @@ ReproSpat <- full_join(Repro_samples, Rcrt_df) %>%
                           Samples > 0 & is.na(Mean) ~ "R&NSS",
                           Samples == 0 & is.na(Mean) ~ "NRS&NSS",
                           TRUE ~ NA)) %>%               
-  left_join(Repro_Mat_props) %>% mutate(Mature = ifelse(is.na(Mature), "Z", Mature),
-                                        Type = fct_relevel(Type, Sample_order))
+  left_join(Repro_Mat_props) %>% mutate(Mature = ifelse(is.na(Mature), "Z", Mature))
+ReproSpat <- ReproSpat %>% mutate(Type = fct_relevel(Type, Sample_order))
 #
 ReproSpat2 <- full_join(Repro_samples, Rcrt_df) %>% 
   mutate(Site = as.factor(Site),
@@ -442,25 +442,29 @@ ggarrange(
 #
 #
 #
-#
+#####
 ###Working with ReproSpat - checking for full representation of Months/Years
 ReproSpat %>% group_by(Site, Station, Year, Month) %>% filter(Site == "SL-C") %>%
   summarise(count = n()) %>% pivot_wider(names_from = Month, values_from = count) %>% print(n = Inf)
 #
-##Trying to find last occurance of NRS and first occurance with R samples then select all rows between last and first
-temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 1) %>% mutate(Type = as.factor(Type)))
+##Function to select data between specified type (NRSNSS/NRSNS/NRSS) and next repro collections
+Selected_samples <- function(df, Type){
+  df1 <- data.frame()
+  for (i in unique(df$Site)){
+    for (j in unique(df$Station)){
+      temp <- data.frame(df %>% filter(Site == i & Station == j) %>% mutate(Type = as.factor(Type))) #Limit to data to work with
+    }
+  }
+}
+##Trying to find last occurrence of NRS and first occurrence with R samples then select all rows between last and first
+temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 1) %>% mutate(Type = as.factor(Type))) #Data to work with
 rle_NRSNSS <- rle(temp$Type == "NRS&NSS") #Identify runs of Types
 last_NRSNSS <- (cumsum(rle_NRSNSS$lengths))[rle_NRSNSS$values == 1] #Identify last row of each sequence of specified Type
-
-rle_R <- rle(temp$Type == "R&NS" | temp$Type == "R&NSS" | temp$Type == "R&S")
-first_R <- (cumsum(rle_R$lengths)+1)[rle_R$values == 1] #Identify first row of each sequence of specified Type
-
-all_months  <- append(append(append(append(append(first_R, first_R+1), first_R+2), first_R+3), first_R+4), first_R+5) #Get next 5 months of data
-temp[all_months,] %>% arrange(MonYr)
-
-rle_NRSNSS  %>% filter(values == "TRUE")
 #
-#Identidfy upper limit for first_R list
+rle_R <- rle(temp$Type == "R&NS" | temp$Type == "R&NSS" | temp$Type == "R&S") #Identify when repro is collected
+first_R <- (cumsum(rle_R$lengths)+1)[rle_R$values == 1] #Identify first row of each sequence of specified Type
+#
+#Identify upper limit for first_R list
 find_next_higher <- function(seq, val) {
   for (i in seq_along(seq)) {
     if (seq[i] > val) {
@@ -471,8 +475,9 @@ find_next_higher <- function(seq, val) {
 }
 # Use the function to find the next higher number
 next_number <- find_next_higher(first_R, last(last_NRSNSS))
-first_R[first_R <= next_number]
+first_R[first_R <= next_number] #Subset to proper data
 #
+##Function to find the next highest number in first_R after each sequence of no repro samples (last_NRSNSS)
 findNextHighest <- function(x) {
   # Find the index of the next highest number in list2
   next_highest_index <- which.max(first_R > x)
@@ -484,11 +489,11 @@ findNextHighest <- function(x) {
   return(first_R[next_highest_index])
 }
 
-# Apply the function to each element of list1, expand to next 5 months of data and append to last list then order all numbers sequentially
+# Apply the function to each element of list1, expand to next 5 months (rows) of data and append to last list then order all numbers sequentially
 next_highest_list <- sapply(last_NRSNSS[last_NRSNSS <= next_number], findNextHighest)
 final_list <- sort(append(last_NRSNSS, next_highest_list+4))
 
-
+#Function to add colon and commas between numbers 
 res1 <- ""  
 for (i in seq_along(final_list)) {
   if (i %%  2 ==  0) {
@@ -497,20 +502,26 @@ for (i in seq_along(final_list)) {
     res1 <- paste0(res1, final_list[i], ":")
   }
 }
-remove_last_x <- function(str) {
-  if (substr(str, nchar(str), nchar(str)) == "," | nchar(str) == ":") {
-    return(substr(str,  1, nchar(str) -  1))
+#remove any extra characters at the end of the string
+remove_last_x <- function(res1) {
+  if (substr(res1, nchar(res1), nchar(res1)) == "," | nchar(res1) == ":") {
+    return(substr(res1,  1, nchar(res1) -  1))
   } else {
-    return(str)
+    return(res1)
   }
 }
-(rows_needed <- str_split(remove_last_x(res1), pattern = ",") %>% as.data.frame())
+res1 <- remove_last_x(res1)
+#Convert string to dataframe to work with
+(rows_needed <- str_split(res1, pattern = ",") %>% as.data.frame())
+#
+#Get all rows numbers between each range of numbers
 row_numbers <- ""
 for (i in 1:nrow(rows_needed)) { 
   row <- eval(parse(text =rows_needed[i,]))
   row_numbers <- append(row_numbers, row)
 }
 row_numbers
+#Subset working df to desired rows
 temp[row_numbers,]
 
 
