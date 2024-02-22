@@ -527,7 +527,11 @@ Selected_samples <- function(df, dataType){
       row_numbers
       #Subset working df to desired rows
       df3 <- Station_data[row_numbers %>% unique(),]
-      df2 <- rbind(df2, df3)
+      #Add in missing rows of MonYr data by selecting for missing data then binding back to df2
+      df4 <- rbind(df3,
+                   anti_join(ReproSpat %>% filter(Site == i & Station == j) %>% filter(MonYr %in% df3$MonYr), df3)) %>% 
+        arrange(Site, Station, MonYr)
+      df2 <- rbind(df2, df4)
     }
     df1 <- rbind(df1, df2)
   }
@@ -535,12 +539,19 @@ Selected_samples <- function(df, dataType){
 }
 #
 test <- Selected_samples(ReproSpat %>% filter(Site == "SL-C"), "NRS&NSS")
+#
+#
+#Ready to try on all data.
+#
+t <- rbind(test,
+           anti_join(ReproSpat %>% filter(Site == "SL-C" & MonYr %in% test$MonYr), test)) %>% 
+  arrange(Site, Station, MonYr)
 
 
 
 
 ##Trying to find last occurrence of NRS and first occurrence with R samples then select all rows between last and first
-temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 2) %>% mutate(Type = as.factor(Type))) #Data to work with
+temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 1) %>% mutate(Type = as.factor(Type))) #Data to work with
 rle_NRSNSS <- rle(temp$Type == "NRS&NSS") #Identify runs of Types
 last_NRSNSS <- (cumsum(rle_NRSNSS$lengths))[rle_NRSNSS$values == 1] #Identify last row of each sequence of specified Type
 #
