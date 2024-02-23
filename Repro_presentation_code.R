@@ -369,7 +369,6 @@ Complete_Mat <- function(df){
   return(df1)
 }
 #
-#####
 Repro_Mat_props <- merge(Maturity %>% mutate(Mature = ifelse(Final_Stage == 4 | Final_Stage == 0, "I", "M")) %>% 
                            dplyr::select(Year, Month, Site, Station, Final_Stage, Mature) %>%
                            group_by(Year, Month, Site, Station, Mature) %>%
@@ -442,10 +441,8 @@ ggarrange(
 #
 #
 #
-#####
-###Working with ReproSpat - checking for full representation of Months/Years
-ReproSpat %>% group_by(Site, Station, Year, Month) %>% filter(Site == "SL-C") %>%
-  summarise(count = n()) %>% pivot_wider(names_from = Month, values_from = count) %>% print(n = Inf)
+#####Selection of data for sample comparison with maturity of samples####
+#
 #
 ##Function to select data between specified type (NRS&NSS/NRS&NS/NRS&S) and next repro collections
 Selected_samples <- function(df, dataType){
@@ -534,19 +531,42 @@ Selected_samples <- function(df, dataType){
       }
       row_numbers
       #Subset working df to desired rows
-      df3 <- Station_data[row_numbers %>% unique(),]
+      df3 <- rownames_to_column(Station_data[row_numbers %>% unique(),], var = "t_diff2") %>% 
+        mutate(t_diff2 = ifelse(t_diff2 %in% last_NRSNSS, "0", t_diff2), temp = cumsum(t_diff2 == 0)) %>% #Add zeros to starting months and create grouping variable
+        mutate(t_diff2 = as.numeric(ifelse(t_diff2 == 0, 0, #Determine month count based on date
+                                           ifelse(MonYr > lag(MonYr, default = first(MonYr) - 1), 1, 0.01)))) %>%
+        drop_na(t_diff2) %>%   group_by(temp) %>% #drop NAs and group to keep numbering within sequences
+        mutate(t_diff = ifelse(t_diff2 == 0, 0, round(cumsum(as.numeric(t_diff2)),0))) %>% dplyr::select(-temp, -t_diff2) #Calculate months (time diff)
+      
       #Add in missing rows of MonYr data by selecting for missing data then binding back to df2
       df4 <- rbind(df3,
-                   anti_join(ReproSpat %>% filter(Site == i & Station == j) %>% filter(MonYr %in% df3$MonYr), df3)) %>% 
+                   anti_join(ReproSpat %>% filter(Site == i & Station == j) %>% filter(MonYr %in% df3$MonYr), df3)) %>% ungroup() %>% 
+        arrange(MonYr) %>%
+        mutate(t_diff = ifelse(is.na(t_diff), lag(t_diff, default = t_diff[1]), t_diff)) %>% #Fill in month counts for added rows
         arrange(Site, Station, MonYr)
+      
+      
       df2 <- rbind(df2, df4)
     }
-    df1 <- rbind(df1, df2)
+    df1 <- rbind(df1, df2) %>% distinct(.keep_all = TRUE)
   }
   return(df1)
 }
 #
-test <- Selected_samples(ReproSpat %>% filter(Site == "SL-C" & Station == 3), "NRS&NSS")
+Selected_data_NRSNSS <- Selected_samples(ReproSpat, "NRS&NSS")
+Selected_data_NRSNS <- Selected_samples(ReproSpat, "NRS&NS") #Not working
+Selected_data_NRSS <- Selected_samples(ReproSpat, "NRS&S")
+#
+##
+head(Selected_data_NRSNSS)
+Selected_data_NRSNS %<% filter(Site == "SL-C") %>%
+  ggplot(aes(t_diff, ))
+#
+#
+####Working with ReproSpat - checking for full representation of Months/Years####
+#
+ReproSpat %>% group_by(Site, Station, Year, Month) %>% filter(Site == "SL-C") %>%
+  summarise(count = n()) %>% pivot_wider(names_from = Month, values_from = count) %>% print(n = Inf)
 #
 #
 #Ready to try on all data.
@@ -559,7 +579,7 @@ t <- rbind(test,
 
 
 ##Trying to find last occurrence of NRS and first occurrence with R samples then select all rows between last and first
-temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 3) %>% mutate(Type = as.factor(Type))) #Data to work with
+temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 1) %>% mutate(Type = as.factor(Type))) #Data to work with
 rle_NRSNSS <- rle(temp$Type == "NRS&NSS") #Identify runs of Types
 last_NRSNSS <- (cumsum(rle_NRSNSS$lengths))[rle_NRSNSS$values == 1] #Identify last row of each sequence of specified Type
 #
@@ -635,6 +655,17 @@ res1 <- remove_last_x(res1)
 #Convert string to dataframe to work with
 (rows_needed <- str_split(res1, pattern = ",") %>% as.data.frame())
 #
+#count_numbers <- function(str) {
+#  split_str <- strsplit(str, ":")[[1]]
+#  numbers <- as.numeric(split_str)
+#  numbers[2] - numbers[1]
+#}
+#Better way in process: number_of_rows <- c()
+#for(i in 1:nrow(rows_needed)){
+#  attempt <- sapply(rows_needed[i,1], count_numbers)
+#  number_of_rows <- append(number_of_rows, attempt)
+#}
+#number_of_rows
 #Get all rows numbers between each range of numbers
 row_numbers <- ""
 for (i in 1:nrow(rows_needed)) { 
@@ -643,8 +674,13 @@ for (i in 1:nrow(rows_needed)) {
 }
 row_numbers %>% unique()
 #Subset working df to desired rows
-tempor <- temp[paste(row_numbers %>% unique()),]
-
+tempor <- rownames_to_column(temp[paste(row_numbers %>% unique()),], var = "t_diff2") %>% 
+  mutate(t_diff2 = ifelse(t_diff2 %in% last_NRSNSS, "0", t_diff2),
+         temp = cumsum(t_diff2 == 0)) %>% #Add zeros to starting months and create grouing variable
+  mutate(t_diff2 = as.numeric(ifelse(t_diff2 == 0, 0, 
+                          ifelse(MonYr > lag(MonYr, default = first(MonYr) - 1), 1, 0.01)))) %>%
+  drop_na(t_diff2) %>%   group_by(temp) %>%
+  mutate(t_diff = ifelse(t_diff2 == 0, 0, round(cumsum(as.numeric(t_diff2)),0))) %>% dplyr::select(-temp, -t_diff2)
 
 ################
 fill_missing_numbers <- function(sequence) {
