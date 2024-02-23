@@ -559,8 +559,9 @@ Selected_data_NRSS <- Selected_samples(ReproSpat, "NRS&S")
 #
 ##
 head(Selected_data_NRSNSS)
-Selected_data_NRSNS %<% filter(Site == "SL-C") %>%
-  ggplot(aes(t_diff, ))
+Selected_data_NRSNSS %>% filter(Site == "SL-C" & Mature == "M") %>%
+  ggplot(aes(t_diff, Prop))+
+  geom_point()
 #
 #
 ####Working with ReproSpat - checking for full representation of Months/Years####
