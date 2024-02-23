@@ -489,6 +489,14 @@ Selected_samples <- function(df, dataType){
         return(first_R[next_highest_index])
       }
       next_highest_list <- sapply(last_NRSNSS[last_NRSNSS <= next_number], findNextHighest)
+      
+      #Determine four months out from selected dates
+      out <- c()
+      for (n in seq_along(next_highest_list)){
+        out2 <- which(temp$MonYr == temp[next_highest_list[n],]$MonYr + months(4))[1]
+        out <- append(out, out2)
+      }
+      
       final_list <- c()
       # Loop over the indices of the lists
       for (m in seq_along(last_NRSNSS)) {
@@ -496,7 +504,7 @@ Selected_samples <- function(df, dataType){
         final_list <- append(final_list, last_NRSNSS[m])
         
         # Append the element from list2
-        final_list <- append(final_list, next_highest_list[m]+4)
+        final_list <- append(final_list, out[m])
       }
       
       #Empty list and function to add colon and commas between row numbers 
@@ -538,7 +546,7 @@ Selected_samples <- function(df, dataType){
   return(df1)
 }
 #
-test <- Selected_samples(ReproSpat %>% filter(Site == "SL-C"), "NRS&NSS")
+test <- Selected_samples(ReproSpat %>% filter(Site == "SL-C" & Station == 3), "NRS&NSS")
 #
 #
 #Ready to try on all data.
@@ -551,7 +559,7 @@ t <- rbind(test,
 
 
 ##Trying to find last occurrence of NRS and first occurrence with R samples then select all rows between last and first
-temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 1) %>% mutate(Type = as.factor(Type))) #Data to work with
+temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 3) %>% mutate(Type = as.factor(Type))) #Data to work with
 rle_NRSNSS <- rle(temp$Type == "NRS&NSS") #Identify runs of Types
 last_NRSNSS <- (cumsum(rle_NRSNSS$lengths))[rle_NRSNSS$values == 1] #Identify last row of each sequence of specified Type
 #
@@ -585,7 +593,14 @@ findNextHighest <- function(x) {
 
 # Apply the function to each element of list1, expand to next 5 months (rows) of data and append to last list then order all numbers sequentially
 next_highest_list <- sapply(last_NRSNSS[last_NRSNSS <= next_number], findNextHighest)
-final_list <- sort(append(last_NRSNSS, next_highest_list+4))
+out <- c()
+for (i in seq_along(next_highest_list)){
+  out2 <- which(temp$MonYr == temp[next_highest_list[i],]$MonYr + months(4))[1]
+  out <- append(out, out2)
+}
+temp[next_highest_list,]
+
+#final_list <- sort(append(last_NRSNSS, next_highest_list+4))
 #as.list(data.frame(do.call(rbind, Map(rbind, last_NRSNSS, next_highest_list+4))))
 # Initialize an empty list to hold the merged elements
 merged_list <- c()
@@ -595,7 +610,7 @@ for (i in seq_along(last_NRSNSS)) {
   merged_list <- append(merged_list, last_NRSNSS[i])
   
   # Append the element from list2
-  merged_list <- append(merged_list, next_highest_list[i]+4)
+  merged_list <- append(merged_list, out[i])
 }
 
 
