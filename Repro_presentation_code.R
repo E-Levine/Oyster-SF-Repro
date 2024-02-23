@@ -536,13 +536,14 @@ Selected_samples <- function(df, dataType){
         mutate(t_diff2 = as.numeric(ifelse(t_diff2 == 0, 0, #Determine month count based on date
                                            ifelse(MonYr > lag(MonYr, default = first(MonYr) - 1), 1, 0.01)))) %>%
         drop_na(t_diff2) %>%   group_by(temp) %>% #drop NAs and group to keep numbering within sequences
-        mutate(t_diff = ifelse(t_diff2 == 0, 0, round(cumsum(as.numeric(t_diff2)),0))) %>% dplyr::select(-temp, -t_diff2) #Calculate months (time diff)
+        mutate(t_diff = ifelse(t_diff2 == 0, 0, round(cumsum(as.numeric(t_diff2)),0))) %>% dplyr::select(-t_diff2) #Calculate months (time diff)
       
       #Add in missing rows of MonYr data by selecting for missing data then binding back to df2
       df4 <- rbind(df3,
                    anti_join(ReproSpat %>% filter(Site == i & Station == j) %>% filter(MonYr %in% df3$MonYr), df3)) %>% ungroup() %>% 
         arrange(MonYr) %>%
-        mutate(t_diff = ifelse(is.na(t_diff), lag(t_diff, default = t_diff[1]), t_diff)) %>% #Fill in month counts for added rows
+        mutate(t_diff = ifelse(is.na(t_diff), lag(t_diff, default = t_diff[1]), t_diff),
+               temp = ifelse(is.na(temp), lag(temp, default = temp[1]), temp)) %>% #Fill in month counts for added rows
         arrange(Site, Station, MonYr)
       
       
@@ -560,9 +561,14 @@ Selected_data_NRSS <- Selected_samples(ReproSpat, "NRS&S")
 ##
 head(Selected_data_NRSNSS)
 Selected_data_NRSNSS %>% filter(Site == "SL-C" & Mature == "M") %>%
-  ggplot(aes(t_diff, Prop))+
-  geom_point()
+  #group_by(Station, temp) %>%
+  ggplot(aes(t_diff, Prop, group = interaction(temp, Station), color = Station))+
+  geom_point(aes(shape = as.factor(temp)))+
+  geom_line()
 #
+Selected_data_NRSNSS %>% filter(Mature == "M" & Prop > 0.75) %>%
+  ggplot(aes(t_diff))+
+  geom_histogram(aes(y = ..count..))
 #
 ####Working with ReproSpat - checking for full representation of Months/Years####
 #
@@ -580,7 +586,7 @@ t <- rbind(test,
 
 
 ##Trying to find last occurrence of NRS and first occurrence with R samples then select all rows between last and first
-temp <- data.frame(ReproSpat %>% filter(Site == "SL-C" & Station == 1) %>% mutate(Type = as.factor(Type))) #Data to work with
+temp <- data.frame(ReproSpat %>% filter(Site == "SL-S" & Station == 2) %>% mutate(Type = as.factor(Type))) #Data to work with
 rle_NRSNSS <- rle(temp$Type == "NRS&NSS") #Identify runs of Types
 last_NRSNSS <- (cumsum(rle_NRSNSS$lengths))[rle_NRSNSS$values == 1] #Identify last row of each sequence of specified Type
 #
