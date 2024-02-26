@@ -689,6 +689,55 @@ tempor <- rownames_to_column(temp[paste(row_numbers %>% unique()),], var = "t_di
   drop_na(t_diff2) %>%   group_by(temp) %>%
   mutate(t_diff = ifelse(t_diff2 == 0, 0, round(cumsum(as.numeric(t_diff2)),0))) %>% dplyr::select(-temp, -t_diff2)
 
+####Comparison of staging####
+#
+#
+##Working with all_oysters
+All_oysters_clean <- Repro_c %>% subset(Final_Stage != "M/F" & Final_Stage != "Buceph") %>% droplevels() %>%
+  subset(Year != "2005" & Year != "2006") %>% droplevels() %>% #Comparing first "complete" year
+  mutate(Year = factor(Year, levels = c("2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023")),
+         Month = factor(Month, levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")),
+         ID = row_number())
+#
+(Overall_counts <- left_join(All_oysters_clean %>% group_by(Year, Month, Final_Stage) %>% summarise(Count= n()),
+                             All_oysters_clean %>% group_by(Year, Month) %>% summarise(Total= n())) %>% 
+   mutate(Year = as.numeric(paste(Year)),
+          Prop = Count/Total) %>% ungroup() %>% complete(Final_Stage, nesting(Year, Month), fill = list(Count = 0, Total = 0, Prop = 0)))
+#
+(First_Last0.333 <- rbind(
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.333) %>%
+    slice(1),
+  Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.333) %>%
+    slice(n())))
+#
+(First_Last0.5 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp > 0.5) %>%
+    slice(1))
+#
+##Comparisons over time - ripe/spawning##
+Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>%
+  ggplot(aes(Month, meanProp, group = Final_Stage))+
+  geom_line(linewidth = 1, color = "#E69F00")+
+  geom_vline(data = First_Last0.333, aes(xintercept  = Month), color = "black", size = 2)+
+  geom_vline(data = First_Last0.5, aes(xintercept =  Month), color = "red", size = 2)+
+  lemon::facet_rep_grid(Year~.)+
+  theme_classic()+ theme_f +
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+
+#
+#
+#
 ################
 fill_missing_numbers <- function(sequence) {
   if (length(sequence) ==  2) {
