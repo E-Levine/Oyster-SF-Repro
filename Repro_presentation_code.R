@@ -9,7 +9,7 @@ pacman::p_load(plyr, tidyverse, #Df manipulation,
                zoo, lubridate, #Dates and times
                readxl, writexl, #Reading excel files
                janitor, scales, #Basic analyses
-               FSA, betareg, lmtest, #lencat
+               FSA, glmmTMB, DHARMa, #betareg, lmtest, #lencat
                emmeans, multcomp, ggpubr, #Arranging ggplots
                install = TRUE)
 #
@@ -57,7 +57,7 @@ Start_dates <- data.frame(Site = c("CR-E", "CR-W", "LW", "LX-N", "LX-S", "SL-C",
 ####Formatting and helpers####
 #
 #Map color to Stage
-Stages <- c("0" = "Undifferentiated", "1" = "Developing", "2" = "Ripe/Spawning", "3" = "Spent/Recycling", "4" = "Indifferent", "8" = "Buceph", "M/F" = "M/F")
+Stages <- c("0" = "Undifferentiated", "1" = "Spenteloping", "2" = "Ripe/Spawning", "3" = "Spent/Recycling", "4" = "Indifferent", "8" = "Buceph", "M/F" = "M/F")
 cbPalette <- c("#666666", "#D55E00", "#E69F00", "#009E73", "#56B4E9", "#9966FF", "#333333")
 names(cbPalette) <- levels(Repro_df$Final_Stage)
 StaFill <- scale_fill_manual(name = "Stage", labels = Stages, values = cbPalette, na.value = "#999999")
@@ -700,26 +700,71 @@ All_oysters_clean <- Repro_c %>% subset(Final_Stage != "M/F" & Final_Stage != "B
          Month = factor(Month, levels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")),
          ID = row_number())
 #
-(Overall_counts <- left_join(All_oysters_clean %>% group_by(Year, Month, Final_Stage) %>% summarise(Count= n()),
-                             All_oysters_clean %>% group_by(Year, Month) %>% summarise(Total= n())) %>% 
-   mutate(#Year = as.numeric(paste(Year)),
-          Prop = Count/Total) %>% ungroup() %>% complete(Final_Stage, nesting(Year, Month), fill = list(Count = 0, Total = 0, Prop = 0)) %>%
-    mutate(Prop2 = Prop + 0.0001))
+(Overall_counts <- left_join(All_oysters_clean %>% filter(Final_Stage != 8 & Final_Stage != 0) %>% droplevels() %>% group_by(Year, Month, Final_Stage) %>% summarise(Count= n()),
+                             All_oysters_clean %>% filter(Final_Stage != 8 & Final_Stage != 0) %>% droplevels() %>% group_by(Year, Month) %>% summarise(Total= n())) %>% 
+   mutate(Prop = Count/Total) %>% ungroup() %>% complete(Final_Stage, nesting(Year, Month), fill = list(Count = 0, Total = 0, Prop = 0)) %>%
+    mutate(sProp = scales::rescale(Prop, to = c(0.00001, 0.99999))))
+#
+#
+#Change in proportions over time (Year)
+set.seed(5432)
+Prop_mod1 <- glmmTMB(sProp ~ Year * Final_Stage, data = Overall_counts, family = "beta_family")
+summary(Prop_mod1)
+plot(simulateResiduals(Prop_mod1)) #No issues
+testZeroInflation(Prop_mod1) #Not sig 
+testDispersion(Prop_mod1) #Not Sig
+testOutliers(Prop_mod1) #some
+testQuantiles(Prop_mod1)
+testCategorical(Prop_mod1, catPred = Overall_counts$Year)
+testCategorical(Prop_mod1, catPred = Overall_counts$Final_Stage)
+#
+Anova(Prop_mod1)
+(Prop_yr_summ <- tidy(Anova(Prop_mod1)) %>% rename("F" = statistic) %>% mutate_if(is.numeric,round, digits = 3))
+(Prop_m1_em <- emmeans(Prop_mod1, ~Year*Final_Stage, type = "response"))
+(Prop_m1_pairs <- pairs(Prop_m1_em, simple = "Year", adjust = "tukey") %>% as.data.frame() %>% dplyr::select(-df, -null) %>%
+    mutate(contrast = gsub("Year", "", contrast)))
+#
+(Prop_means <- Overall_counts %>% group_by(Year, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3),
+              sdProp = round(sd(Prop), 3),
+              minProp = round(min(Prop), 3),
+              maxProp = round(max(Prop), 3)))
+#
+Overall_counts %>%
+  ggplot(aes(Year, Prop, fill = Final_Stage))+
+  geom_boxplot()+
+  lemon::facet_rep_grid(Final_Stage~.)+
+  theme_classic()+
+  scale_x_discrete(expand = c(0,0.5))+
+  scale_y_continuous(expand = c(0,0))
+#
+#
+Prop_means %>%
+  ggplot(aes(Year, meanProp, color = Final_Stage, group = Final_Stage))+
+  geom_line(linewidth = 1)+
+  theme_classic()+ StaColor + Base + 
+  scale_x_discrete("", expand = c(0,0.5))+
+  scale_y_continuous("Average proportion", expand = c(0,0), limits = c(0, 1))+
+  theme(axis.text.x = element_text(angle = 35))
+#
+Prop_means %>%
+  ggplot(aes(Year, meanProp, color = Final_Stage, group = Final_Stage))+
+  #geom_smooth(method = "glm", color = "#666666", alpha = 0.5)+
+  geom_line(linewidth = 1)+
+  lemon::facet_rep_grid(Final_Stage~.)+
+  #geom_smooth(data = Prop_preds, aes(Year, pred, ymin = lwr, ymax = upr, group = Final_Stage), stat = "identity", color = "black")+
+  theme_classic()+ StaColor + Base + 
+  scale_x_discrete("", expand = c(0,0.5))+
+  scale_y_continuous("Average proportion", expand = c(0,0), limits = c(0,1))+
+  theme(legend.text = element_text(size = 12),  legend.title = element_text(size = 13),
+        axis.text.x = element_text(angle = 35), panel.spacing = unit(0.25, "lines"), 
+        strip.background = element_blank(), strip.text = element_blank())
 #
 #
 #
+#What drives changes:
 ##Ripe/spawning proportions
 Ripe_props <- Overall_counts %>% filter(Final_Stage == 2)
-set.seed(54321)
-Ripe_model <- betareg(Prop2 ~ Year, data = Ripe_props)
-lrtest(Ripe_model)
-summary(Ripe_model)                      
-emmeans(Ripe_model, ~Year)
-left_join(Ripe_props %>% group_by(Year) %>% summarise(Mean = mean(Prop),
-                                                      SD = sd(Prop)),
-          cld(emmeans(Ripe_model, ~Year),
-              alpha = 0.05, Letters = letters, adjust = "sidak") %>% arrange(Year) %>% dplyr::select(-df))
-#
 #
 (Ripe_0.33 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
     summarise(meanProp3 = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
@@ -729,13 +774,12 @@ left_join(Ripe_props %>% group_by(Year) %>% summarise(Mean = mean(Prop),
 (Ripe_0.5 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
     summarise(meanProp5 = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
     arrange(Year) %>% group_by(Year) %>% print(n = Inf) %>%#Arrange and group by Year
-    filter(meanProp5 > 0.5 & meanProp5 < 0.66))# %>%
-#slice(1))
+    filter(meanProp5 > 0.5 & meanProp5 < 0.66))
+#
 (Ripe_0.66 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
     summarise(meanProp3 = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>% ungroup() %>%
     arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
-    filter(meanProp3 > 0.66)) 
-#
+    filter(meanProp3 > 0.66))
 #
 #
 Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
@@ -763,48 +807,36 @@ Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
 #
 #
 #
-##Developing proportions
-Dev_props <- Overall_counts %>% filter(Final_Stage == 1)
-set.seed(54321)
-Dev_model <- betareg(Prop2 ~ Year, data = Dev_props)
-lrtest(Dev_model)
-summary(Dev_model)                      
-emmeans(Dev_model, ~Year)
-left_join(Dev_props %>% group_by(Year) %>% summarise(Mean = mean(Prop),
-                                                      SD = sd(Prop)),
-          cld(emmeans(Dev_model, ~Year),
-              alpha = 0.05, Letters = letters, adjust = "sidak") %>% arrange(Year) %>% dplyr::select(-df))
+##Spenteloping proportions
+Spent_props <- Overall_counts %>% filter(Final_Stage == 1)
 #
-#
-(Dev_0.33 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+(Spent_0.33 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
     summarise(meanProp3 = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>% ungroup() %>%
     arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
     filter(meanProp3 > 0.333 & meanProp3 < 0.5)) 
 #
-(Dev_0.5 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+(Spent_0.5 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
     summarise(meanProp5 = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>% ungroup() %>%
     arrange(Year) %>% group_by(Year) %>% print(n = Inf) %>%#Arrange and group by Year
     filter(meanProp5 > 0.5 & meanProp5 < 0.66))
 #
-(Dev_0.66 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+(Spent_0.66 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
     summarise(meanProp3 = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>% ungroup() %>%
     arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
     filter(meanProp3 > 0.66)) 
 #
-#
-#
 Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
   summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>%
   ggplot()+
-  geom_rect(data = Dev_0.33, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
+  geom_rect(data = Spent_0.33, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "darkblue", alpha = 0.5)+
-  #geom_vline(data = Dev_First_Last0.333 %>% filter(Time == "First"), aes(xintercept  = Month), color = "black", size = 4)+
-  #geom_vline(data = Dev_First_Last0.333 %>% filter(Time == "Last"), aes(xintercept  = Month), color = "darkblue", size = 4)+
-  geom_rect(data = Dev_0.5, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
+  #geom_vline(data = Spent_First_Last0.333 %>% filter(Time == "First"), aes(xintercept  = Month), color = "black", size = 4)+
+  #geom_vline(data = Spent_First_Last0.333 %>% filter(Time == "Last"), aes(xintercept  = Month), color = "darkblue", size = 4)+
+  geom_rect(data = Spent_0.5, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "orange", alpha = 0.5)+
-  geom_rect(data = Dev_0.66, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
+  geom_rect(data = Spent_0.66, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "red", alpha = 0.5)+
-  #geom_vline(data = Dev_First_Last0.5, aes(y = meanProp5, xintercept =  Month), color = "red", size = 4)+
+  #geom_vline(data = Spent_First_Last0.5, aes(y = meanProp5, xintercept =  Month), color = "red", size = 4)+
   geom_line(aes(Month, meanProp, group = Final_Stage), linewidth = 1.25)+
   lemon::facet_rep_grid(Year~.)+
   theme_classic()+ theme_f + theme(panel.spacing.y = unit(0.05, "lines"),
@@ -812,7 +844,49 @@ Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
                                    axis.text.x = element_text(size = 14, color = "black", family = "sans"),
                                    axis.text.y = element_text(size = 10, color = "black", family = "sans", margin = unit(c(0, 0.1, 0, 0.2), "cm")))+
   scale_x_discrete("", expand = c(0,0.5), labels = Month_abbs)+
-  scale_y_continuous("Average proportion of sample", expand = c(0,0), limits = c(0,1.0), breaks = c(0, 0.5, 1.0))#
+  scale_y_continuous("Average proportion of sample", expand = c(0,0), limits = c(0,1.0), breaks = c(0, 0.5, 1.0))
+#
+#
+#
+##Spent proportions
+Spent_props <- Overall_counts %>% filter(Final_Stage == 1)
+#
+(Spent_0.33 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp3 = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp3 > 0.333 & meanProp3 < 0.5)) 
+#
+(Spent_0.5 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp5 = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>% print(n = Inf) %>%#Arrange and group by Year
+    filter(meanProp5 > 0.5 & meanProp5 < 0.66))
+#
+(Spent_0.66 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+    summarise(meanProp3 = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>% ungroup() %>%
+    arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
+    filter(meanProp3 > 0.66)) 
+#
+Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>%
+  ggplot()+
+  geom_rect(data = Spent_0.33, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
+            fill = "darkblue", alpha = 0.5)+
+  #geom_vline(data = Spent_First_Last0.333 %>% filter(Time == "First"), aes(xintercept  = Month), color = "black", size = 4)+
+  #geom_vline(data = Spent_First_Last0.333 %>% filter(Time == "Last"), aes(xintercept  = Month), color = "darkblue", size = 4)+
+  geom_rect(data = Spent_0.5, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
+            fill = "orange", alpha = 0.5)+
+  geom_rect(data = Spent_0.66, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
+            fill = "red", alpha = 0.5)+
+  #geom_vline(data = Spent_First_Last0.5, aes(y = meanProp5, xintercept =  Month), color = "red", size = 4)+
+  geom_line(aes(Month, meanProp, group = Final_Stage), linewidth = 1.25)+
+  lemon::facet_rep_grid(Year~.)+
+  theme_classic()+ theme_f + theme(panel.spacing.y = unit(0.05, "lines"),
+                                   axis.title = element_text(size = 15, color = "black", family = "sans"),
+                                   axis.text.x = element_text(size = 14, color = "black", family = "sans"),
+                                   axis.text.y = element_text(size = 10, color = "black", family = "sans", margin = unit(c(0, 0.1, 0, 0.2), "cm")))+
+  scale_x_discrete("", expand = c(0,0.5), labels = Month_abbs)+
+  scale_y_continuous("Average proportion of sample", expand = c(0,0), limits = c(0,1.0), breaks = c(0, 0.5, 1.0))
+#
 #
 #
 #
