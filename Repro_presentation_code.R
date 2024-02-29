@@ -57,7 +57,7 @@ Start_dates <- data.frame(Site = c("CR-E", "CR-W", "LW", "LX-N", "LX-S", "SL-C",
 ####Formatting and helpers####
 #
 #Map color to Stage
-Stages <- c("0" = "Undifferentiated", "1" = "Spenteloping", "2" = "Ripe/Spawning", "3" = "Spent/Recycling", "4" = "Indifferent", "8" = "Buceph", "M/F" = "M/F")
+Stages <- c("0" = "Undifferentiated", "1" = "Developing", "2" = "Ripe/Spawning", "3" = "Spent/Recycling", "4" = "Indifferent", "8" = "Buceph", "M/F" = "M/F")
 cbPalette <- c("#666666", "#D55E00", "#E69F00", "#009E73", "#56B4E9", "#9966FF", "#333333")
 names(cbPalette) <- levels(Repro_df$Final_Stage)
 StaFill <- scale_fill_manual(name = "Stage", labels = Stages, values = cbPalette, na.value = "#999999")
@@ -119,10 +119,20 @@ Repro_c %>%
   StaFill + Base +
   scale_x_discrete(expand = c(0.2, 0))+
   scale_y_continuous("", expand = c(0,0), labels = scales::percent(c(0, 0.25, 0.5, 0.75, 1)))+
-  theme(legend.text = element_text(size = 11))
+  theme(legend.text = element_text(size = 11), legend.position = "top")
 #          
 #
 ##Very few 0s. For sake of practice, logistic curve for age at maturity
+#
+Repro_c %>% filter(Final_Stage != "M/F" & Final_Stage != 8 & Final_Stage != 0 & Year != "2005" & Year != "2006") %>%
+  ggplot(aes(Year, fill = Final_Stage))+
+  geom_bar(position = "fill")+
+  StaFill + Base + 
+  scale_x_discrete("", expand = c(0.05, 0))+
+  scale_y_continuous("Proportion", expand = c(0,0), labels = scales::percent(c(0, 0.25, 0.5, 0.75, 1)))+ 
+  theme(axis.text.x = element_text(angle = 35), 
+        legend.text = element_text(size = 11), legend.title = element_blank(), legend.position = "top")
+#  
 #
 #####Size at maturity####
 #
@@ -691,7 +701,7 @@ tempor <- rownames_to_column(temp[paste(row_numbers %>% unique()),], var = "t_di
   drop_na(t_diff2) %>%   group_by(temp) %>%
   mutate(t_diff = ifelse(t_diff2 == 0, 0, round(cumsum(as.numeric(t_diff2)),0))) %>% dplyr::select(-temp, -t_diff2)
 
-####Comparison of staging####
+####Change in stages over time####
 #
 #ALL SITES:
 All_oysters_clean <- Repro_c %>% subset(Final_Stage != "M/F" & Final_Stage != "Buceph") %>% droplevels() %>%
@@ -745,20 +755,23 @@ Prop_means %>%
   theme_classic()+ StaColor + Base + 
   scale_x_discrete("", expand = c(0,0.5))+
   scale_y_continuous("Average proportion", expand = c(0,0), limits = c(0, 1))+
-  theme(axis.text.x = element_text(angle = 35))
+  theme(legend.text = element_text(size = 12),  legend.title = element_blank(), legend.position = "top",
+        axis.text.x = element_text(angle = 35),
+        axis.text.y = element_text(margin = unit(c(0, 0.1, 0, 0.2), "cm")))
 #
 Prop_means %>%
   ggplot(aes(Year, meanProp, color = Final_Stage, group = Final_Stage))+
   #geom_smooth(method = "glm", color = "#666666", alpha = 0.5)+
-  geom_line(linewidth = 1)+
+  geom_line(linewidth = 2)+
   lemon::facet_rep_grid(Final_Stage~.)+
   #geom_smooth(data = Prop_preds, aes(Year, pred, ymin = lwr, ymax = upr, group = Final_Stage), stat = "identity", color = "black")+
   theme_classic()+ StaColor + Base + 
   scale_x_discrete("", expand = c(0,0.5))+
   scale_y_continuous("Average proportion", expand = c(0,0), limits = c(0,1))+
-  theme(legend.text = element_text(size = 12),  legend.title = element_text(size = 13),
-        axis.text.x = element_text(angle = 35), panel.spacing = unit(0.25, "lines"), 
-        strip.background = element_blank(), strip.text = element_blank())
+  theme(legend.text = element_text(size = 12),  legend.title = element_blank(), legend.position = "top",
+        axis.text.x = element_text(angle = 35, margin = unit(c(0.35, 0, -0.3, 0), "cm")), panel.spacing = unit(0.1, "lines"), 
+        strip.background = element_blank(), strip.text = element_blank(),
+        axis.text.y = element_text(size = 11, margin = unit(c(0, 0.1, 0, 0.2), "cm")))
 #
 #
 #
@@ -781,46 +794,43 @@ Ripe_props <- Overall_counts %>% filter(Final_Stage == 2)
     arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
     filter(meanProp3 > 0.66))
 #
-#
 Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
   summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>%
   ggplot()+
   geom_rect(data = Ripe_0.33, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "darkblue", alpha = 0.5)+
-  #geom_vline(data = Ripe_First_Last0.333 %>% filter(Time == "First"), aes(xintercept  = Month), color = "black", size = 4)+
-  #geom_vline(data = Ripe_First_Last0.333 %>% filter(Time == "Last"), aes(xintercept  = Month), color = "darkblue", size = 4)+
-  geom_rect(data = Ripe_0.5, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
+   geom_rect(data = Ripe_0.5, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "orange", alpha = 0.5)+
   geom_rect(data = Ripe_0.66, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "red", alpha = 0.5)+
-  #geom_vline(data = Ripe_First_Last0.5, aes(y = meanProp5, xintercept =  Month), color = "red", size = 4)+
+  geom_text(aes(label = Year), x = 0.7, y = 0.75, size = 3.5)+
   geom_line(aes(Month, meanProp, group = Final_Stage), linewidth = 1.25)+
   lemon::facet_rep_grid(Year~.)+
-  theme_classic()+ theme_f + theme(panel.spacing.y = unit(0.05, "lines"),
-                                   axis.title = element_text(size = 15, color = "black", family = "sans"),
-                                   axis.text.x = element_text(size = 14, color = "black", family = "sans"),
-                                   axis.text.y = element_text(size = 10, color = "black", family = "sans", margin = unit(c(0, 0.1, 0, 0.2), "cm")))+
+  theme_classic()+ theme(panel.spacing.y = unit(0.05, "lines"), strip.text = element_blank(),
+                         axis.title = element_text(size = 15, color = "black", family = "sans"),
+                         axis.text.x = element_text(size = 14, color = "black", family = "sans", margin = unit(c(0, 0, 0, 0), "cm")),
+                         axis.text.y = element_text(size = 8, color = "black", family = "sans", margin = unit(c(0, 0.1, 0, 0.2), "cm")))+
   scale_x_discrete("", expand = c(0,0.5), labels = Month_abbs)+
-  scale_y_continuous("Average proportion of sample", expand = c(0,0), limits = c(0,1.0), breaks = c(0, 0.5, 1.0))#
+  scale_y_continuous("Average proportion", expand = c(0,0), limits = c(0,1.0), breaks = c(0, 0.5, 1.0))
 #
 #
 #
 #
 #
-##Spenteloping proportions
-Spent_props <- Overall_counts %>% filter(Final_Stage == 1)
+##Developing proportions
+Dev_props <- Overall_counts %>% filter(Final_Stage == 1)
 #
-(Spent_0.33 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+(Dev_0.33 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
     summarise(meanProp3 = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>% ungroup() %>%
     arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
     filter(meanProp3 > 0.333 & meanProp3 < 0.5)) 
 #
-(Spent_0.5 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+(Dev_0.5 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
     summarise(meanProp5 = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>% ungroup() %>%
     arrange(Year) %>% group_by(Year) %>% print(n = Inf) %>%#Arrange and group by Year
     filter(meanProp5 > 0.5 & meanProp5 < 0.66))
 #
-(Spent_0.66 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
+(Dev_0.66 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
     summarise(meanProp3 = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>% ungroup() %>%
     arrange(Year) %>% group_by(Year) %>%#Arrange and group by Year
     filter(meanProp3 > 0.66)) 
@@ -828,24 +838,21 @@ Spent_props <- Overall_counts %>% filter(Final_Stage == 1)
 Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
   summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 1) %>%
   ggplot()+
-  geom_rect(data = Spent_0.33, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
+  geom_rect(data = Dev_0.33, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "darkblue", alpha = 0.5)+
-  #geom_vline(data = Spent_First_Last0.333 %>% filter(Time == "First"), aes(xintercept  = Month), color = "black", size = 4)+
-  #geom_vline(data = Spent_First_Last0.333 %>% filter(Time == "Last"), aes(xintercept  = Month), color = "darkblue", size = 4)+
-  geom_rect(data = Spent_0.5, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
+  geom_rect(data = Dev_0.5, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "orange", alpha = 0.5)+
-  geom_rect(data = Spent_0.66, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
+  geom_rect(data = Dev_0.66, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "red", alpha = 0.5)+
-  #geom_vline(data = Spent_First_Last0.5, aes(y = meanProp5, xintercept =  Month), color = "red", size = 4)+
+  geom_text(aes(label = Year), x = 0.7, y = 0.75, size = 3.5)+
   geom_line(aes(Month, meanProp, group = Final_Stage), linewidth = 1.25)+
   lemon::facet_rep_grid(Year~.)+
-  theme_classic()+ theme_f + theme(panel.spacing.y = unit(0.05, "lines"),
-                                   axis.title = element_text(size = 15, color = "black", family = "sans"),
-                                   axis.text.x = element_text(size = 14, color = "black", family = "sans"),
-                                   axis.text.y = element_text(size = 10, color = "black", family = "sans", margin = unit(c(0, 0.1, 0, 0.2), "cm")))+
+  theme_classic()+ theme(panel.spacing.y = unit(0.05, "lines"), strip.text = element_blank(),
+                         axis.title = element_text(size = 15, color = "black", family = "sans"),
+                         axis.text.x = element_text(size = 14, color = "black", family = "sans", margin = unit(c(0, 0, 0, 0), "cm")),
+                         axis.text.y = element_text(size = 8, color = "black", family = "sans", margin = unit(c(0, 0.1, 0, 0.2), "cm")))+
   scale_x_discrete("", expand = c(0,0.5), labels = Month_abbs)+
-  scale_y_continuous("Average proportion of sample", expand = c(0,0), limits = c(0,1.0), breaks = c(0, 0.5, 1.0))
-#
+  scale_y_continuous("Average proportion", expand = c(0,0), limits = c(0,1.0), breaks = c(0, 0.5, 1.0))
 #
 #
 ##Spent proportions
@@ -867,27 +874,23 @@ Spent_props <- Overall_counts %>% filter(Final_Stage == 1)
     filter(meanProp3 > 0.66)) 
 #
 Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
-  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>%
   ggplot()+
   geom_rect(data = Spent_0.33, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "darkblue", alpha = 0.5)+
-  #geom_vline(data = Spent_First_Last0.333 %>% filter(Time == "First"), aes(xintercept  = Month), color = "black", size = 4)+
-  #geom_vline(data = Spent_First_Last0.333 %>% filter(Time == "Last"), aes(xintercept  = Month), color = "darkblue", size = 4)+
   geom_rect(data = Spent_0.5, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "orange", alpha = 0.5)+
   geom_rect(data = Spent_0.66, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "red", alpha = 0.5)+
-  #geom_vline(data = Spent_First_Last0.5, aes(y = meanProp5, xintercept =  Month), color = "red", size = 4)+
+  geom_text(aes(label = Year), x = 0.7, y = 0.75, size = 3.5)+
   geom_line(aes(Month, meanProp, group = Final_Stage), linewidth = 1.25)+
   lemon::facet_rep_grid(Year~.)+
-  theme_classic()+ theme_f + theme(panel.spacing.y = unit(0.05, "lines"),
-                                   axis.title = element_text(size = 15, color = "black", family = "sans"),
-                                   axis.text.x = element_text(size = 14, color = "black", family = "sans"),
-                                   axis.text.y = element_text(size = 10, color = "black", family = "sans", margin = unit(c(0, 0.1, 0, 0.2), "cm")))+
+  theme_classic()+ theme(panel.spacing.y = unit(0.05, "lines"), strip.text = element_blank(),
+                         axis.title = element_text(size = 15, color = "black", family = "sans"),
+                         axis.text.x = element_text(size = 14, color = "black", family = "sans", margin = unit(c(0, 0, 0, 0), "cm")),
+                         axis.text.y = element_text(size = 8, color = "black", family = "sans", margin = unit(c(0, 0.1, 0, 0.2), "cm")))+
   scale_x_discrete("", expand = c(0,0.5), labels = Month_abbs)+
-  scale_y_continuous("Average proportion of sample", expand = c(0,0), limits = c(0,1.0), breaks = c(0, 0.5, 1.0))
-#
-#
+  scale_y_continuous("Average proportion", expand = c(0,0), limits = c(0,1.0), breaks = c(0, 0.5, 1.0))#
 #
 #
 #
