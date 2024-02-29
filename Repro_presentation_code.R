@@ -895,3 +895,16 @@ Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
 #
 #
 #
+(Overall_SHs <- left_join(All_oysters_clean %>% filter(Final_Stage != 8 & Final_Stage != 0) %>% droplevels() %>% 
+                            group_by(Year, Month, Final_Stage) %>% summarise(meanSH= mean(SH, na.rm = T), sdSH = sd(SH, na.rm = T)),
+                          All_oysters_clean %>% filter(Final_Stage != 8 & Final_Stage != 0) %>% droplevels() %>% 
+                            group_by(Year, Month) %>% summarise(meanSH= mean(SH, na.rm = T), sdSH = sd(SH, na.rm = T))))
+#
+All_oysters_clean %>% filter(Final_Stage != 8 & Final_Stage != 0) %>%
+  ggplot(aes(Year, SH, fill = Final_Stage))+
+  geom_boxplot()+
+  lemon::facet_rep_grid(Final_Stage~.) +
+  StaFill + Base +
+  scale_y_continuous("Shell height", expand = c(0,0), limits = c(0,100))+
+  theme(strip.text = element_blank())
+  

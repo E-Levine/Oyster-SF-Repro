@@ -1154,6 +1154,35 @@ Prop_means %>%
         strip.background = element_blank(), strip.text = element_blank())
 #
 #
+(East_counts <- left_join(All_oysters_clean %>% filter(Final_Stage != 8 & Final_Stage != 0 & Estuary != "CR" & !is.na(Site)) %>% droplevels() %>% group_by(Year, Month, Final_Stage, Site) %>% summarise(Count= n()),
+                          All_oysters_clean %>% filter(Final_Stage != 8 & Final_Stage != 0 & Estuary != "CR" & !is.na(Site)) %>% droplevels() %>% group_by(Year, Month, Site) %>% summarise(Total= n())) %>% 
+    mutate(Prop = Count/Total) %>% ungroup() %>% complete(Final_Stage, nesting(Year, Month), fill = list(Count = 0, Total = 0, Prop = 0)) %>%
+    mutate(sProp = scales::rescale(Prop, to = c(0.00001, 0.99999))))
+#
+East_counts %>% group_by(Year, Site) %>% summarise(N = n()) %>% pivot_wider(names_from = Site, values_from =N)
+#Change in proportions over time (Year) & location (Site)
+set.seed(5432)
+Prop_mod2 <- glmmTMB(sProp ~ Year * Final_Stage * Site, data = East_counts, family = "beta_family")
+summary(Prop_mod2)
+plot(simulateResiduals(Prop_mod2)) #Issues
+testZeroInflation(Prop_mod2) #Not sig 
+testDispersion(Prop_mod2) #Not Sig
+testOutliers(Prop_mod2) #some
+testQuantiles(Prop_mod2)
+testCategorical(Prop_mod2, catPred = East_counts$Year)
+testCategorical(Prop_mod2, catPred = East_counts$Final_Stage)
+#
+Anova(Prop_mod2)
+(Prop_yr_summ <- tidy(Anova(Prop_mod2)) %>% rename("F" = statistic) %>% mutate_if(is.numeric,round, digits = 3))
+(Prop_m2_em <- emmeans(Prop_mod2, ~Year*Final_Stage, type = "response"))
+(Prop_m2_pairs <- pairs(Prop_m2_em, simple = "Year", adjust = "tukey") %>% as.data.frame() %>% dplyr::select(-df, -null) %>%
+    mutate(contrast = gsub("Year", "", contrast)))
+#
+(Prop_means <- Overall_counts %>% group_by(Year, Final_Stage) %>%
+    summarise(meanProp = round(mean(Prop), 3),
+              sdProp = round(sd(Prop), 3),
+              minProp = round(min(Prop), 3),
+              maxProp = round(max(Prop), 3)))
 ################
 fill_missing_numbers <- function(sequence) {
   if (length(sequence) ==  2) {
