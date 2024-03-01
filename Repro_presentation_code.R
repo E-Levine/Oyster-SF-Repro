@@ -94,7 +94,7 @@ Base <- theme_bw() +
                                    margin = unit(c(0, 0.4, 0, 0), "cm"), family = "sans"),
         axis.ticks.length = unit(-0.15, "cm"), plot.margin = margin(0.25, 0.5, 0.25, 0.25, "cm"))
 #
-theme_f <- theme(strip.text.y = element_text(color = "black", size = 13, family = "sans", face = "bold"),
+theme_f <- theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
                  strip.background = element_rect(fill = "#CCCCCC"),
                  panel.spacing = unit(0.75, "lines"),
                  strip.text.x = element_text(size = 10, face = "bold", family = "sans"))
@@ -596,125 +596,44 @@ Selected_data_NRSNSS %>% filter(Mature == "M" & Prop > 0.75) %>%
   ggplot(aes(t_diff))+
   geom_histogram(aes(y = ..count..))
 #
-####Working with ReproSpat - checking for full representation of Months/Years####
+Selected_data_NRSNS %>% 
+  filter(Mature == "M" & Prop > 0.75) %>%
+  ggplot(aes(t_diff))+
+  geom_histogram(aes(y = ..count..), binwidth =1)#
 #
-ReproSpat %>% group_by(Site, Station, Year, Month) %>% filter(Site == "SL-C") %>%
-  summarise(count = n()) %>% pivot_wider(names_from = Month, values_from = count) %>% print(n = Inf)
 #
+Selected_data_NRSNS_2 <- Selected_data_NRSNS %>% 
+  #add season to df
+  mutate(Season = ifelse(Month < 4, "Spring", 
+                         ifelse(Month > 9, "Winter", 
+                                ifelse(Month > 3 & Month < 7, "Summer", "Fall"))),
+         Prop = ifelse(t_diff == 0, 0, Prop)) %>%
+  mutate(Mature = ifelse(t_diff == 0, "M", Mature))
 #
-#Ready to try on all data.
+Selected_data_NRSNS_2 <- Selected_data_NRSNS %>%  group_by(Site, Station, temp) %>%
+  mutate(Season = ifelse(Month < 4, "Spring", 
+                         ifelse(Month > 9, "Winter", 
+                                ifelse(Month > 3 & Month < 7, "Summer", "Fall"))),
+         Prop = ifelse(t_diff == 0, 0, Prop)) %>%
+  mutate(Season = fct_relevel(Season, c("Spring", "Summer", "Fall", "Winter")),
+         Mature = ifelse(t_diff == 0, "M", Mature)) %>%
+  mutate(Season = first(Season)) %>% ungroup()
 #
-t <- rbind(test,
-           anti_join(ReproSpat %>% filter(Site == "SL-C" & MonYr %in% test$MonYr), test)) %>% 
-  arrange(Site, Station, MonYr)
-
-
-
-
-##Trying to find last occurrence of NRS and first occurrence with R samples then select all rows between last and first
-temp <- data.frame(ReproSpat %>% filter(Site == "SL-S" & Station == 2) %>% mutate(Type = as.factor(Type))) #Data to work with
-rle_NRSNSS <- rle(temp$Type == "NRS&NSS") #Identify runs of Types
-last_NRSNSS <- (cumsum(rle_NRSNSS$lengths))[rle_NRSNSS$values == 1] #Identify last row of each sequence of specified Type
+Selected_data_NRSNS_2 %>% filter(Mature == "M") %>%
+  group_by(Site, t_diff, Season) %>% summarise(meanProp = mean(Prop, na.rm = T)) %>%
+  ggplot(aes(t_diff, meanProp, color = Season, group = Season))+
+  geom_point(size = 2)+ 
+  lemon::facet_rep_grid(Season~.)+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, color = "black", linewidth = 0.75)+
+  geom_hline(aes(yintercept = 0.5), linetype = "dashed")+
+  scale_x_continuous("Number of months", expand = c(0,0))+
+  scale_y_continuous("Proportion mature", expand = c(0,0.05), limits = c(0,1))+
+  Base +  theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
+                strip.background = element_rect(fill = "#CCCCCC"),
+                panel.spacing = unit(0, "lines")) +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 11))
 #
-rle_R <- rle(temp$Type == "R&NS" | temp$Type == "R&NSS" | temp$Type == "R&S") #Identify when repro is collected
-first_R <- (cumsum(rle_R$lengths)+1)[rle_R$values == 0] #Identify first row of each sequence of specified Type
-#
-#Identify upper limit for first_R list
-find_next_higher <- function(seq, val) {
-  for (i in seq_along(seq)) {
-    if (seq[i] > val) {
-      return(seq[i])
-    }
-  }
-  return(NA)  # Return NA if no higher number is found
-}
-# Use the function to find the next higher number
-next_number <- find_next_higher(first_R, last(last_NRSNSS))
-first_R <- first_R[first_R <= next_number] #Subset to proper data
-#
-##Function to find the next highest number in first_R after each sequence of no repro samples (last_NRSNSS)
-findNextHighest <- function(x) {
-  # Find the index of the next highest number in list2
-  next_highest_index <- which.max(first_R > x)
-  # If there is no such number, return NA
-  if (length(next_highest_index) ==  0) {
-    return(NA)
-  }
-  # Return the next highest number
-  return(first_R[next_highest_index])
-}
-
-# Apply the function to each element of list1, expand to next 5 months (rows) of data and append to last list then order all numbers sequentially
-next_highest_list <- sapply(last_NRSNSS[last_NRSNSS <= next_number], findNextHighest)
-out <- c()
-for (i in seq_along(next_highest_list)){
-  out2 <- which(temp$MonYr == temp[next_highest_list[i],]$MonYr + months(4))[1]
-  out <- append(out, out2)
-}
-temp[next_highest_list,]
-
-#final_list <- sort(append(last_NRSNSS, next_highest_list+4))
-#as.list(data.frame(do.call(rbind, Map(rbind, last_NRSNSS, next_highest_list+4))))
-# Initialize an empty list to hold the merged elements
-merged_list <- c()
-# Loop over the indices of the lists
-for (i in seq_along(last_NRSNSS)) {
-  # Append the element from list1
-  merged_list <- append(merged_list, last_NRSNSS[i])
-  
-  # Append the element from list2
-  merged_list <- append(merged_list, out[i])
-}
-
-
-#Function to add colon and commas between numbers 
-res1 <- ""  
-for (i in seq_along(merged_list)) {
-  if (i %%  2 ==  0) {
-    res1 <- paste0(res1, merged_list[i], ",")
-  } else {
-    res1 <- paste0(res1, merged_list[i], ":")
-  }
-}
-#remove any extra characters at the end of the string
-remove_last_x <- function(res1) {
-  if (substr(res1, nchar(res1), nchar(res1)) == "," | nchar(res1) == ":") {
-    return(substr(res1,  1, nchar(res1) -  1))
-  } else {
-    return(res1)
-  }
-}
-res1 <- remove_last_x(res1)
-#Convert string to dataframe to work with
-(rows_needed <- str_split(res1, pattern = ",") %>% as.data.frame())
-#
-#count_numbers <- function(str) {
-#  split_str <- strsplit(str, ":")[[1]]
-#  numbers <- as.numeric(split_str)
-#  numbers[2] - numbers[1]
-#}
-#Better way in process: number_of_rows <- c()
-#for(i in 1:nrow(rows_needed)){
-#  attempt <- sapply(rows_needed[i,1], count_numbers)
-#  number_of_rows <- append(number_of_rows, attempt)
-#}
-#number_of_rows
-#Get all rows numbers between each range of numbers
-row_numbers <- ""
-for (i in 1:nrow(rows_needed)) { 
-  row <- eval(parse(text =rows_needed[i,]))
-  row_numbers <- append(row_numbers, row)
-}
-row_numbers %>% unique()
-#Subset working df to desired rows
-tempor <- rownames_to_column(temp[paste(row_numbers %>% unique()),], var = "t_diff2") %>% 
-  mutate(t_diff2 = ifelse(t_diff2 %in% last_NRSNSS, "0", t_diff2),
-         temp = cumsum(t_diff2 == 0)) %>% #Add zeros to starting months and create grouing variable
-  mutate(t_diff2 = as.numeric(ifelse(t_diff2 == 0, 0, 
-                          ifelse(MonYr > lag(MonYr, default = first(MonYr) - 1), 1, 0.01)))) %>%
-  drop_na(t_diff2) %>%   group_by(temp) %>%
-  mutate(t_diff = ifelse(t_diff2 == 0, 0, round(cumsum(as.numeric(t_diff2)),0))) %>% dplyr::select(-temp, -t_diff2)
-
 ####Change in stages over time####
 #
 #ALL SITES:
