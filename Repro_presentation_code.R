@@ -120,7 +120,15 @@ Repro_c %>%
   scale_x_discrete(expand = c(0.2, 0))+
   scale_y_continuous("", expand = c(0,0), labels = scales::percent(c(0, 0.25, 0.5, 0.75, 1)))+
   theme(legend.text = element_text(size = 11), legend.position = "top")
-#          
+#
+full_join(Repro_c %>% filter(Final_Stage != 8 & Final_Stage != "M/F") %>% 
+  group_by(Year, Final_Stage) %>% summarise(Count = n()),
+  Repro_c %>% filter(Final_Stage != 8 & Final_Stage != "M/F") %>% 
+  group_by(Year) %>% summarise(Total = n())) %>% 
+  mutate(Prop = Count/Total) %>%
+  filter(Year == 2007 | Year == 2010 | Year == 2014 | Year == 2018 | Year == 2023) %>% 
+  dplyr::select(-Count, -Total) %>%
+  pivot_wider(names_from = Final_Stage, values_from = Prop)
 #
 ##Very few 0s. For sake of practice, logistic curve for age at maturity
 #
