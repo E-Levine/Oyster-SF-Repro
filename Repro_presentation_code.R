@@ -471,7 +471,11 @@ Selected_samples <- function(df, dataType){
       last_NRSNSS <- (cumsum(rle_NRSNSS$lengths))[rle_NRSNSS$values == 1] #Identify last row of each sequence of specified Type
       
       #Identify periods with repro collections
-      rle_R <- rle(Station_data$Type == "R&NS" | Station_data$Type == "R&NSS" | Station_data$Type == "R&S") #Identify when repro is collected
+      if(dataType != "NRS&NS"){
+        rle_R <- rle(Station_data$Type == "R&NS" | Station_data$Type == "R&NSS" | Station_data$Type == "R&S") #Identify when repro is collected
+      } else {
+        rle_R <- rle(Station_data$Type == "NRS&S" | Station_data$Type == "R&NS" | Station_data$Type == "R&S") #Identify when repro is collected
+      }
       first_R <- (cumsum(rle_R$lengths)+1)[rle_R$values == 0] #Identify first row of each sequence of specified Type
       
       #Find upper limit for first_R list based on no repro data
@@ -483,72 +487,83 @@ Selected_samples <- function(df, dataType){
         }
         return(NA)  # Return NA if no higher number is found
       }
-      next_number <- find_next_higher(first_R, last(last_NRSNSS))
-      first_R <- first_R[first_R <= next_number] #Subset to proper data
       
-      # Apply function to each element of list1, expand to next 5 months (rows) of data and append to last list then order all numbers sequentially
-      findNextHighest <- function(x) {
-        # Find the index of the next highest number in list2
-        next_highest_index <- which.max(first_R > x)
-        # If there is no such number, return NA
-        if (length(next_highest_index) ==  0) {
-          return(NA)
-        }
-        # Return the next highest number
-        return(first_R[next_highest_index])
-      }
-      next_highest_list <- sapply(last_NRSNSS[last_NRSNSS <= next_number], findNextHighest)
-      
-      #Determine four months out from selected dates
-      out <- c()
-      for (n in seq_along(next_highest_list)){
-        out2 <- which(Station_data$MonYr == Station_data[next_highest_list[n],]$MonYr + months(4))[1]
-        out <- append(out, out2)
-      }
-      
-      final_list <- c()
-      # Loop over the indices of the lists
-      for (m in seq_along(last_NRSNSS)) {
-        # Append the element from list1
-        final_list <- append(final_list, last_NRSNSS[m])
+      #If data exists, perfrom selection, if not then return NULL
+      if(length(last_NRSNSS) != 0){
+        next_number <- find_next_higher(first_R, last(last_NRSNSS))
+        first_R <- first_R[first_R <= next_number] #Subset to proper data
         
-        # Append the element from list2
-        final_list <- append(final_list, out[m])
-      }
-      
-      #Empty list and function to add colon and commas between row numbers 
-      res1 <- ""  
-      for (k in seq_along(final_list)) {
-        if (k %%  2 ==  0) {
-          res1 <- paste0(res1, final_list[k], ",")
-        } else {
-          res1 <- paste0(res1, final_list[k], ":")
+        # Apply function to each element of list1, expand to next 5 months (rows) of data and append to last list then order all numbers sequentially
+        findNextHighest <- function(x) {
+          # Find the index of the next highest number in list2
+          next_highest_index <- which.max(first_R > x)
+          # If there is no such number, return NA
+          if (length(next_highest_index) ==  0) {
+            return(NA)
+            }
+          # Return the next highest number
+          return(first_R[next_highest_index])
+          }
+        next_highest_list <- sapply(last_NRSNSS[last_NRSNSS <= next_number], findNextHighest)
+        
+          #Determine four months out from selected dates
+        out <- c()
+        for (n in seq_along(next_highest_list)){
+          out2 <- which(Station_data$MonYr == Station_data[next_highest_list[n],]$MonYr + months(4))[1]
+          out <- append(out, out2)
         }
+        
+              final_list <- c()
+              # Loop over the indices of the lists
+              for (m in seq_along(last_NRSNSS)) {
+                # Append the element from list1
+                        final_list <- append(final_list, last_NRSNSS[m])
+                        
+                                # Append the element from list2
+                        final_list <- append(final_list, out[m])
+              }
+              
+                    #Empty list and function to add colon and commas between row numbers 
+              res1 <- ""  
+              for (k in seq_along(final_list)) {
+                if (k %%  2 ==  0) {
+                  res1 <- paste0(res1, final_list[k], ",")
+                  } else {
+                    res1 <- paste0(res1, final_list[k], ":")
+                  }
+                }
+              #Remove any extra comma or colon at the end of the string
+              remove_last_x <- function(res1) {
+                if (substr(res1, nchar(res1), nchar(res1)) == "," | nchar(res1) == ":") {
+                  return(substr(res1,  1, nchar(res1) -  1))
+                  } else {
+                    return(res1)
+                  }
+                }
+              res1 <- remove_last_x(res1)
+              
+                    #Get all rows numbers between each range of numbers
+              row_numbers <- ""
+              for (l in 1:nrow(rows_needed)) { 
+                row <- eval(parse(text =rows_needed[l,]))
+                row_numbers <- append(row_numbers, row)
+                }
+              row_numbers
+              #Subset working df to desired rows
+              df3 <- rownames_to_column(Station_data[row_numbers %>% unique(),], var = "t_diff2") %>% 
+                mutate(t_diff2 = ifelse(t_diff2 %in% last_NRSNSS, "0", t_diff2), temp = cumsum(t_diff2 == 0)) %>% #Add zeros to starting months and create grouping variable
+                mutate(t_diff2 = as.numeric(ifelse(t_diff2 == 0, 0, #Determine month count based on date
+                                                   ifelse(MonYr > lag(MonYr, default = first(MonYr) - 1), 1, 0.01)))) %>%
+                drop_na(t_diff2) %>%   group_by(temp) %>% #drop NAs and group to keep numbering within sequences
+                mutate(t_diff = ifelse(t_diff2 == 0, 0, round(cumsum(as.numeric(t_diff2)),0))) %>% dplyr::select(-t_diff2) #Calculate months (time diff)
+      } else {
+        df3 <- rownames_to_column(Station_data[1,], var = "t_diff2") %>% 
+          mutate(t_diff2 = ifelse(t_diff2 %in% last_NRSNSS, "0", t_diff2), temp = cumsum(t_diff2 == 0)) %>% #Add zeros to starting months and create grouping variable
+          mutate(t_diff2 = as.numeric(ifelse(t_diff2 == 0, 0, #Determine month count based on date
+                                             ifelse(MonYr > lag(MonYr, default = first(MonYr) - 1), 1, 0.01)))) %>%
+          drop_na(t_diff2) %>%   group_by(temp) %>% #drop NAs and group to keep numbering within sequences
+          mutate(t_diff = ifelse(t_diff2 == 0, 0, round(cumsum(as.numeric(t_diff2)),0))) %>% dplyr::select(-t_diff2) #Calculate months (time diff)
       }
-      #Remove any extra comma or colon at the end of the string
-      remove_last_x <- function(res1) {
-        if (substr(res1, nchar(res1), nchar(res1)) == "," | nchar(res1) == ":") {
-          return(substr(res1,  1, nchar(res1) -  1))
-        } else {
-          return(res1)
-        }
-      }
-      res1 <- remove_last_x(res1)
-      
-      #Get all rows numbers between each range of numbers
-      row_numbers <- ""
-      for (l in 1:nrow(rows_needed)) { 
-        row <- eval(parse(text =rows_needed[l,]))
-        row_numbers <- append(row_numbers, row)
-      }
-      row_numbers
-      #Subset working df to desired rows
-      df3 <- rownames_to_column(Station_data[row_numbers %>% unique(),], var = "t_diff2") %>% 
-        mutate(t_diff2 = ifelse(t_diff2 %in% last_NRSNSS, "0", t_diff2), temp = cumsum(t_diff2 == 0)) %>% #Add zeros to starting months and create grouping variable
-        mutate(t_diff2 = as.numeric(ifelse(t_diff2 == 0, 0, #Determine month count based on date
-                                           ifelse(MonYr > lag(MonYr, default = first(MonYr) - 1), 1, 0.01)))) %>%
-        drop_na(t_diff2) %>%   group_by(temp) %>% #drop NAs and group to keep numbering within sequences
-        mutate(t_diff = ifelse(t_diff2 == 0, 0, round(cumsum(as.numeric(t_diff2)),0))) %>% dplyr::select(-t_diff2) #Calculate months (time diff)
       
       #Add in missing rows of MonYr data by selecting for missing data then binding back to df2
       df4 <- rbind(df3,
@@ -558,16 +573,15 @@ Selected_samples <- function(df, dataType){
                temp = ifelse(is.na(temp), lag(temp, default = temp[1]), temp)) %>% #Fill in month counts for added rows
         arrange(Site, Station, MonYr)
       
-      
       df2 <- rbind(df2, df4)
-    }
+      }
     df1 <- rbind(df1, df2) %>% distinct(.keep_all = TRUE)
-  }
+    }
   return(df1)
-}
+  }
 #
 Selected_data_NRSNSS <- Selected_samples(ReproSpat, "NRS&NSS")
-#Selected_data_NRSNS <- Selected_samples(ReproSpat, "NRS&NS") #Not working
+Selected_data_NRSNS <- Selected_samples(ReproSpat, "NRS&NS") 
 Selected_data_NRSS <- Selected_samples(ReproSpat, "NRS&S")
 #
 ##
