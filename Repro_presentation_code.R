@@ -413,6 +413,7 @@ head(Repro_Mat_props2)
 #
 #
 #
+##Set sampling Types based on repro and rcrt schema
 #MonYr and sampling schema (Repro & Spat) with Count and Prop Mature samples
 ReproSpat <- full_join(Repro_samples, Rcrt_df) %>% 
   mutate(Site = as.factor(Site),
@@ -455,8 +456,7 @@ ggarrange(
 #
 #####Selection of data for sample comparison with maturity of samples####
 #
-#
-##Function to select data between specified type (NRS&NSS/NRS&NS/NRS&S) and next repro collections
+##Function to select data between specified type (NRS&NSS/NRS&NS/NRS&S) and next repro collections + 4-5 months of sampling
 Selected_samples <- function(df, dataType){
   df1 <- data.frame()
   df2 <- data.frame()
@@ -502,7 +502,7 @@ Selected_samples <- function(df, dataType){
       #Determine four months out from selected dates
       out <- c()
       for (n in seq_along(next_highest_list)){
-        out2 <- which(temp$MonYr == temp[next_highest_list[n],]$MonYr + months(4))[1]
+        out2 <- which(Station_data$MonYr == Station_data[next_highest_list[n],]$MonYr + months(4))[1]
         out <- append(out, out2)
       }
       
@@ -567,7 +567,7 @@ Selected_samples <- function(df, dataType){
 }
 #
 Selected_data_NRSNSS <- Selected_samples(ReproSpat, "NRS&NSS")
-Selected_data_NRSNS <- Selected_samples(ReproSpat, "NRS&NS") #Not working
+#Selected_data_NRSNS <- Selected_samples(ReproSpat, "NRS&NS") #Not working
 Selected_data_NRSS <- Selected_samples(ReproSpat, "NRS&S")
 #
 ##

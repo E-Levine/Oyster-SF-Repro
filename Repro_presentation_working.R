@@ -815,7 +815,7 @@ Selected_samples <- function(df, dataType){
       #Determine four months out from selected dates
       out <- c()
       for (n in seq_along(next_highest_list)){
-        out2 <- which(temp$MonYr == temp[next_highest_list[n],]$MonYr + months(4))[1]
+        out2 <- which(Station_data$MonYr == Station_data[next_highest_list[n],]$MonYr + months(4))[1]
         out <- append(out, out2)
       }
       
