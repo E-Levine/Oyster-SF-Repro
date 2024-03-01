@@ -95,7 +95,7 @@ Base <- theme_bw() +
         axis.ticks.length = unit(-0.15, "cm"), plot.margin = margin(0.25, 0.5, 0.25, 0.25, "cm"))
 #
 theme_f <- theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
-                 strip.background = element_rect(fill = "#CCCCCC"),
+                 strip.background = element_rect(fill = "#999999"),
                  panel.spacing = unit(0.75, "lines"),
                  strip.text.x = element_text(size = 10, face = "bold", family = "sans"))
 #
@@ -454,6 +454,45 @@ ggarrange(
 #
 #
 #
+####Repro and Rcrt background figs####
+#
+Repro_t <- Repro_activity %>% mutate(Days = days_in_month(MonYr))
+Repro_t %>% 
+  ggplot(aes(MonYr, group = Active, fill = Active)) +
+  geom_bar(position = "fill", width = 31)+
+  lemon::facet_rep_grid(Site~.)+
+  Base+ 
+  theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
+        strip.background = element_rect(fill = "#999999"),
+        panel.spacing = unit(0, "lines"), legend.position = "none",
+        axis.text.y = element_text(size = 10), 
+        axis.text.x = element_text(margin = unit(c(0.3, 0, -0.2, 0), "cm")))+
+  scale_x_date("", expand = c(0,0), limits = as.Date(c("2005/01/01", "2023/12/31")), date_breaks = "2 years", date_labels = "%Y")+
+  scale_y_continuous("Proportion of samples", expand = c(0,0), limits = c(0,1), breaks = c(0, 0.5, 1))+
+  scale_fill_manual(values = c("#FF0000", "#9966FF"))
+#
+Rcrt_t <- Rcrt_df %>% 
+  mutate(Site = as.factor(Site)) %>% 
+  group_by(Site, MonYr) %>% summarise(meanRcrt = mean(Mean, na.rm = T), sdRcrt = sd(Mean, na.rm = T)) %>%
+  mutate(Site = fct_relevel(Site, c("LW", "LX-N", "LX-S", "SL-C", "SL-N", "SL-S", "CR-E", "CR-W"))) %>%
+  complete(MonYr = seq(min(MonYr), max(MonYr), by = "month")) %>% subset(MonYr < as.Date("2023/12/01"))
+Rcrt_t %>% 
+  ggplot(aes(MonYr, meanRcrt))+
+  geom_bar(stat = "identity")+
+  geom_rect(data = Rcrt_t %>% filter(meanRcrt == 0), aes(xmin = MonYr, xmax = MonYr+30, ymin = -Inf, ymax = Inf), fill = "#E69F00", alpha = 0.5)+
+  geom_rect(data = Rcrt_t %>% filter(is.na(meanRcrt)), aes(xmin = MonYr, xmax = MonYr+30, ymin = -Inf, ymax = Inf), fill = "#FF0000", alpha = 0.7)+
+  lemon::facet_rep_grid(Site~.,  scales = 'free_y')+
+  Base+ 
+  theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
+        strip.background = element_rect(fill = "#999999"),
+        panel.spacing = unit(0, "lines"), legend.position = "top",
+        axis.text.y = element_text(size = 12), 
+        axis.text.x = element_text(margin = unit(c(0.3, 0, -0.1, 0), "cm")))+
+  scale_x_date("", expand = c(0,0), limits = as.Date(c("2005/01/01", "2023/12/31")), date_breaks = "2 years", date_labels = "%Y")+
+  scale_y_continuous("Average spat/shell", expand = c(0,0))
+  
+#
+#
 #####Selection of data for sample comparison with maturity of samples####
 #
 ##Function to select data between specified type (NRS&NSS/NRS&NS/NRS&S) and next repro collections + 4-5 months of sampling
@@ -622,17 +661,47 @@ Selected_data_NRSNS_2 <- Selected_data_NRSNS %>%  group_by(Site, Station, temp) 
 Selected_data_NRSNS_2 %>% filter(Mature == "M") %>%
   group_by(Site, t_diff, Season) %>% summarise(meanProp = mean(Prop, na.rm = T)) %>%
   ggplot(aes(t_diff, meanProp, color = Season, group = Season))+
-  geom_point(size = 2)+ 
+  geom_point(size = 3.5)+ 
   lemon::facet_rep_grid(Season~.)+
   geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, color = "black", linewidth = 0.75)+
   geom_hline(aes(yintercept = 0.5), linetype = "dashed")+
   scale_x_continuous("Number of months", expand = c(0,0))+
   scale_y_continuous("Proportion mature", expand = c(0,0.05), limits = c(0,1))+
+  scale_color_manual(values = c("#009E73", "#FF0000", "#E69F00", "#9966FF"))+
   Base +  theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
                 strip.background = element_rect(fill = "#CCCCCC"),
                 panel.spacing = unit(0, "lines")) +
   theme(legend.position = "none",
         axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 11))
+#
+#
+###list of dates needed
+tdiff_SH <- left_join(Selected_data_NRSNS_2 %>% filter(Mature == "M") %>%
+                        group_by(Site, t_diff, Season) %>% dplyr::select(Year:Station),
+                      Repro_full %>% 
+                        dplyr::select(Year:Station, Sample_Number, SH, Final_Stage, MonYr) %>% 
+                        mutate(Year = as.numeric(Year), Month = as.numeric(Month))) %>% 
+  mutate(Mature = ifelse(Final_Stage == 4 | Final_Stage == 0, "I", "M"),
+         Season = fct_relevel(Season, c("Spring", "Summer", "Fall", "Winter"))) %>%
+  group_by(t_diff, MonYr, Season, Site, Station, Mature) %>%
+  summarise(meanSH = mean(SH, na.rm = T))
+#
+tdiff_SH %>% drop_na(meanSH) %>%
+  ggplot(aes(t_diff, meanSH, color = Mature))+
+  geom_point(size = 3.5)+
+  lemon::facet_rep_grid(Season~.)+
+  scale_x_continuous("Number of months", expand = c(0.005,0))+
+  scale_y_continuous("Average shell height (mm)", expand = c(0,0.05), limits = c(0,100))+
+  scale_color_manual(values = c("#009E73", "#E69F00"))+
+  Base +  theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
+                strip.background = element_rect(fill = "#CCCCCC"),
+                panel.spacing = unit(0, "lines")) +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 11))
+  
+  
+#
+#
 #
 ####Change in stages over time####
 #
