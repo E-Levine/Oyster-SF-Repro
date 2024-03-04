@@ -749,6 +749,25 @@ Anova(Prop_mod1)
               sdProp = round(sd(Prop), 3),
               minProp = round(min(Prop), 3),
               maxProp = round(max(Prop), 3)))
+###Letters by Stage
+Prop_modD <- glmmTMB(sProp ~ Year, 
+                      data = Overall_counts %>% subset(Final_Stage == 1), 
+                      family = "beta_family")
+Prop_modR <- glmmTMB(sProp ~ Year, 
+                     data = Overall_counts %>% subset(Final_Stage == 2), 
+                     family = "beta_family")
+Prop_modS <- glmmTMB(sProp ~ Year, 
+                     data = Overall_counts %>% subset(Final_Stage == 3), 
+                     family = "beta_family")
+Prop_modI <- glmmTMB(sProp ~ Year, 
+                     data = Overall_counts %>% subset(Final_Stage == 4), 
+                     family = "beta_family")
+Anova(Prop_modI)
+Prop_means <- full_join(Prop_means, 
+                        rbind(cld(lsmeans(Prop_modD, c("Year")), Letters = letters) %>% arrange(Year) %>% mutate(Final_Stage = as.factor(1)) %>% dplyr::select(Year:SE, .group, Final_Stage),
+                              cld(lsmeans(Prop_modR, c("Year")), Letters = letters) %>% arrange(Year) %>% mutate(Final_Stage = as.factor(2)) %>% dplyr::select(Year:SE, .group, Final_Stage),
+                              cld(lsmeans(Prop_modR, c("Year")), Letters = letters) %>% arrange(Year) %>% mutate(Final_Stage = as.factor(3)) %>% dplyr::select(Year:SE, .group, Final_Stage))) %>%
+  rename(Letters = .group) %>% mutate(Letters = as.factor(Letters))
 #
 Overall_counts %>%
   ggplot(aes(Year, Prop, fill = Final_Stage))+
@@ -773,6 +792,7 @@ Prop_means %>%
   ggplot(aes(Year, meanProp, color = Final_Stage, group = Final_Stage))+
   #geom_smooth(method = "glm", color = "#666666", alpha = 0.5)+
   geom_line(linewidth = 2)+
+  geom_text(data = Prop_means %>% filter(!grepl("abcd|bcd", Letters)) %>% filter(Final_Stage != 1), aes(label = Letters), vjust = -1.5, color = "black")+
   lemon::facet_rep_grid(Final_Stage~.)+
   #geom_smooth(data = Prop_preds, aes(Year, pred, ymin = lwr, ymax = upr, group = Final_Stage), stat = "identity", color = "black")+
   theme_classic()+ StaColor + Base + 
@@ -866,7 +886,7 @@ Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
 #
 #
 ##Spent proportions
-Spent_props <- Overall_counts %>% filter(Final_Stage == 1)
+Spent_props <- Overall_counts %>% filter(Final_Stage == 3)
 #
 (Spent_0.33 <- Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
     summarise(meanProp3 = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>% ungroup() %>%
@@ -884,7 +904,7 @@ Spent_props <- Overall_counts %>% filter(Final_Stage == 1)
     filter(meanProp3 > 0.66)) 
 #
 Overall_counts %>% group_by(Year, Month, Final_Stage) %>%
-  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 2) %>%
+  summarise(meanProp = round(mean(Prop), 3)) %>% subset(Final_Stage == 3) %>%
   ggplot()+
   geom_rect(data = Spent_0.33, aes(xmin = as.numeric(Month)-0.5, xmax = as.numeric(Month)+0.5, ymin = -Inf, ymax = Inf), 
             fill = "darkblue", alpha = 0.5)+
