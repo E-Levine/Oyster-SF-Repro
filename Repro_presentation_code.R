@@ -464,6 +464,20 @@ ggarrange(
 #
 ####Repro and Rcrt background figs####
 #
+Repro_c %>% filter(Final_Stage != "M/F" & Final_Stage != 8 & Final_Stage != 0 & Year != "2005" & Year != "2006") %>%
+  mutate(Site = fct_relevel(Site, c("LW", "LX-N", "LX-S", "SL-C", "SL-N", "SL-S", "CR-E", "CR-W"))) %>%
+  ggplot(aes(Year, fill = Final_Stage))+
+  geom_bar(position = "fill")+
+  lemon::facet_rep_grid(Site~.)+
+  StaFill + Base + 
+  scale_x_discrete("", expand = c(0.05, 0))+
+  scale_y_continuous("", expand = c(0,0), breaks = c(0, 0.5, 1), labels = scales::percent(c(0, 0.5, 1)))+ 
+  theme(axis.text.x = element_text(angle = 35, margin = unit(c( 0.35, 0, -0.4, 0), "cm")), 
+        legend.text = element_text(size = 11), legend.title = element_blank(), legend.position = "top",
+        strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
+        strip.background = element_rect(fill = "#999999"),
+        panel.spacing = unit(0, "lines"))
+#
 Repro_t <- Repro_activity %>% mutate(Days = days_in_month(MonYr))
 Repro_t %>% 
   ggplot(aes(MonYr, group = Active, fill = Active)) +
@@ -487,8 +501,8 @@ Rcrt_t <- Rcrt_df %>%
 Rcrt_t %>% 
   ggplot(aes(MonYr, meanRcrt))+
   geom_bar(stat = "identity")+
-  geom_rect(data = Rcrt_t %>% filter(meanRcrt == 0), aes(xmin = MonYr, xmax = MonYr+30, ymin = -Inf, ymax = Inf), fill = "#E69F00", alpha = 0.5)+
-  geom_rect(data = Rcrt_t %>% filter(is.na(meanRcrt)), aes(xmin = MonYr, xmax = MonYr+30, ymin = -Inf, ymax = Inf), fill = "#FF0000", alpha = 0.7)+
+  #geom_rect(data = Rcrt_t %>% filter(meanRcrt == 0), aes(xmin = MonYr, xmax = MonYr+30, ymin = -Inf, ymax = Inf), fill = "#E69F00", alpha = 0.5)+
+  #geom_rect(data = Rcrt_t %>% filter(is.na(meanRcrt)), aes(xmin = MonYr, xmax = MonYr+30, ymin = -Inf, ymax = Inf), fill = "#FF0000", alpha = 0.7)+
   lemon::facet_rep_grid(Site~.,  scales = 'free_y')+
   Base+ 
   theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
@@ -665,6 +679,20 @@ Selected_data_NRSNS_2 <- Selected_data_NRSNS %>%  group_by(Site, Station, temp) 
   mutate(Season = fct_relevel(Season, c("Spring", "Summer", "Fall", "Winter")),
          Mature = ifelse(t_diff == 0, "M", Mature)) %>%
   mutate(Season = first(Season)) %>% ungroup()
+#
+Selected_data_NRSNS_2 %>% filter(Mature == "M") %>%
+  group_by(Site, t_diff, Season) %>% summarise(meanProp = mean(Prop, na.rm = T)) %>%
+  ggplot(aes(t_diff, meanProp))+
+  geom_point(size = 3.5)+ 
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, color = "black", linewidth = 0.75)+
+  geom_hline(aes(yintercept = 0.5), linetype = "dashed")+
+  scale_x_continuous("Number of months", expand = c(0,0))+
+  scale_y_continuous("Proportion mature", expand = c(0,0.01), limits = c(0,1))+
+  Base +  theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
+                strip.background = element_rect(fill = "#CCCCCC"),
+                panel.spacing = unit(0, "lines")) +
+  theme(legend.position = "none",
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 11))
 #
 Selected_data_NRSNS_2 %>% filter(Mature == "M") %>%
   group_by(Site, t_diff, Season) %>% summarise(meanProp = mean(Prop, na.rm = T)) %>%
