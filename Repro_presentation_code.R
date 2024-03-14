@@ -97,14 +97,14 @@ Base <- theme_bw() +
 Prez <- theme_bw() +
   theme(panel.grid = element_blank(), panel.border = element_blank(), panel.background = element_blank(),
         axis.line = element_line(color = "black"),
-        axis.title = element_text(size = 20, color = "black", family = "sans"),
-        axis.text.x = element_text(size = 19, color = "black", 
+        axis.title = element_text(size = 24, color = "black", family = "sans"),
+        axis.text.x = element_text(size = 23, color = "black", 
                                    margin = unit(c(0.4, 0.5, 0, 0.5), "cm"), family = "sans"),
-        axis.text.y = element_text(size = 19, color = "black", 
+        axis.text.y = element_text(size = 23, color = "black", 
                                    margin = unit(c(0, 0.4, 0, 0), "cm"), family = "sans"),
         axis.ticks.length = unit(-0.15, "cm"), plot.margin = margin(0.25, 0.5, 0.25, 0.25, "cm"))
 #
-theme_f <- theme(strip.text.y = element_text(color = "black", size = 13, family = "sans", face = "bold"),
+theme_f <- theme(strip.text.y = element_text(color = "black", size = 15, family = "sans", face = "bold"),
                  strip.background = element_rect(fill = "#999999"),
                  panel.spacing = unit(0.75, "lines"),
                  strip.text.x = element_text(size = 13, face = "bold", family = "sans"))
@@ -129,7 +129,7 @@ Repro_c %>% filter(Final_Stage != 8) %>%
   StaFill + Prez +
   scale_x_discrete(expand = c(0.2, 0))+
   scale_y_continuous("", expand = c(0,0), labels = scales::percent(c(0, 0.25, 0.5, 0.75, 1)))+
-  theme(legend.title = element_blank(), legend.text = element_text(size = 14), legend.position = "top")+
+  theme(legend.title = element_blank(), legend.text = element_text(size = 16), legend.position = "top")+
   guides(fill = guide_legend(nrow = 1))
 #
 full_join(Repro_c %>% filter(Final_Stage != 8 & Final_Stage != "M/F") %>% 
@@ -148,9 +148,9 @@ Repro_c %>% filter(Final_Stage != "M/F" & Final_Stage != 8 & Final_Stage != 0 & 
   geom_bar(position = "fill")+
   StaFill + Prez + 
   scale_x_discrete("", expand = c(0.05, 0))+
-  scale_y_continuous("Proportion", expand = c(0,0), labels = scales::percent(c(0, 0.25, 0.5, 0.75, 1)))+ 
-  theme(axis.text.x = element_text(angle = 30), 
-        legend.text = element_text(size = 14), legend.title = element_blank(), legend.position = "top")
+  scale_y_continuous("", expand = c(0,0), labels = scales::percent(c(0, 0.25, 0.5, 0.75, 1)))+ 
+  theme(axis.text.x = element_text(angle = 40, vjust = 0.75), 
+        legend.text = element_text(size = 17), legend.title = element_blank(), legend.position = "top")
 #  
 #
 #####Size at maturity####
@@ -172,13 +172,13 @@ Maturity %>%
   ggplot(aes(SH, fill = Sex))+
   geom_histogram(aes(y = ..count..), breaks = seq(0,90, by = 5), alpha = 0.8)+
   lemon::facet_rep_grid(Sex~., scales = 'free_y')+
-  Prez + scale_x_continuous("Shell height (mm)", expand = c(0,0)) + scale_y_continuous("Count", expand = c(0,0), n.breaks = 4)+
+  Prez + scale_x_continuous("Shell height (mm)", expand = c(0,0), n.breaks = 7) + scale_y_continuous("Count", expand = c(0,0), n.breaks = 4)+
   theme(legend.position = "none") +MFFill +theme_f
 #
 Maturity %>% subset(Mature == "I") %>%
   ggplot(aes(SH))+
   geom_histogram(aes(y = ..count..), breaks = seq(0,90, by = 5))+
-  Prez + scale_x_continuous("Shell height (mm)", expand = c(0,0)) + scale_y_continuous("Count", expand = c(0,0))
+  Prez + scale_x_continuous("Shell height (mm)", expand = c(0,0), n.breaks = 7) + scale_y_continuous("Count", expand = c(0,0))
 #
 ggarrange(
   Maturity %>% subset(Mature == "I") %>%
@@ -226,9 +226,9 @@ mat_all %>%
               method.args = list(family = binomial), size = 1.5, color = "black")+
   Prez + MFCol +
   geom_vline(xintercept = LD50[[1]],linetype = "dashed", color = "black", size = 1)+
-  scale_x_continuous(name = "Shell height (mm)", expand = c(0,0), limits = c(0, round5(max(mat_all$SH))), breaks = seq(0, round5(max(mat_all$SH)), by = 10))+
+  scale_x_continuous(name = "Shell height (mm)", expand = c(0,0), limits = c(0, 140), breaks = seq(0, 140, by = 20))+
   scale_y_continuous(name = "Proportion mature", expand = c(0.025,0.025), limits = c(0,1))+
-  theme(legend.text = element_text(size = 11))
+  theme(legend.position = "none", plot.margin = margin(5, 25, 20, 5))
 #
 #
 #Clearly isn't informative. What next? Attempt to use "indifferent" as immature?
@@ -709,14 +709,14 @@ Selected_data_NRSNS_2 %>% filter(Mature == "M") %>%
 Selected_data_NRSNS_2 %>% filter(Mature == "M") %>%
   group_by(Site, t_diff, Season) %>% summarise(meanProp = mean(Prop, na.rm = T)) %>%
   ggplot(aes(t_diff, meanProp, color = Season, group = Season))+
-  geom_point(size = 4.5)+ 
+  geom_point(size = 6)+ 
   lemon::facet_rep_grid(Season~.)+
   geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, color = "black", linewidth = 0.75)+
   geom_hline(aes(yintercept = 0.5), linetype = "dashed")+
   scale_x_continuous("Number of months", expand = c(0.005,0))+
-  scale_y_continuous("Proportion active", expand = c(0,0.05), limits = c(0,1))+
+  scale_y_continuous("Proportion active", expand = c(0,0.09), limits = c(0,1))+
   scale_color_manual(values = c("#009E73", "#FF0000", "#E69F00", "#9966FF"))+
-  Prez +  theme(strip.text.y = element_text(color = "black", size = 14, family = "sans", face = "bold"),
+  Prez +  theme(strip.text.y = element_text(color = "black", size = 15, family = "sans", face = "bold"),
                 strip.background = element_rect(fill = "#CCCCCC"),
                 panel.spacing = unit(0, "lines")) +
   theme(legend.position = "none")
@@ -735,12 +735,11 @@ tdiff_SH <- left_join(Selected_data_NRSNS_2 %>% filter(Mature == "M") %>%
 #
 tdiff_SH %>% drop_na(meanSH) %>%
   ggplot(aes(t_diff, meanSH, color = Mature))+
-  geom_point(size = 4.5)+
-  lemon::facet_rep_grid(Season~.)+
+  geom_point(size = 6)+  lemon::facet_rep_grid(Season~.)+
   scale_x_continuous("Number of months", expand = c(0.005,0))+
   scale_y_continuous("Average shell height (mm)", expand = c(0,0.05), limits = c(0,100))+
   scale_color_manual(values = c("#009E73", "#E69F00"))+
-  Prez +  theme(strip.text.y = element_text(color = "black", size = 14, family = "sans", face = "bold"),
+  Prez +  theme(strip.text.y = element_text(color = "black", size = 15, family = "sans", face = "bold"),
                 strip.background = element_rect(fill = "#CCCCCC"),
                 panel.spacing = unit(0, "lines")) +
   theme(legend.position = "none")
@@ -756,20 +755,21 @@ Repro_c %>% filter(Final_Stage != "M/F" & Final_Stage != 8 & Final_Stage != 0 & 
   StaFill + Prez + 
   scale_x_discrete("", expand = c(0.05, 0))+
   scale_y_continuous("", expand = c(0,0), breaks = c(0, 0.25, 0.5, 0.75, 1), labels = scales::percent(c(0, 0.25, 0.5, 0.75, 1)))+ 
-  theme(axis.text.x = element_text(angle = 35, margin = unit(c( 0.45, 0, -0.4, 0), "cm")), 
-        legend.text = element_text(size = 14), legend.title = element_blank(), legend.position = "top",
+  theme(axis.text.x = element_text(angle = 40, margin = unit(c( 0.45, 0, -0.4, 0), "cm"), vjust = 0.75), 
+        legend.text = element_text(size = 16), legend.title = element_blank(), legend.position = "top",
         strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
         strip.background = element_rect(fill = "#999999"),
         panel.spacing = unit(0, "lines"))
 #
 Rcrt_t %>%  filter(Site == "SL-S") %>%
   ggplot(aes(MonYr, meanRcrt))+
-  geom_bar(stat = "identity")+
+  geom_bar(stat = "identity", fill = "black", color = "black")+
   Prez+ 
   theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
         strip.background = element_rect(fill = "#999999"),
         panel.spacing = unit(0, "lines"), legend.position = "top",
-        axis.text.x = element_text(margin = unit(c(0.3, 0, -0.1, 0), "cm")))+
+        axis.text.x = element_text(margin = unit(c(0.3, 0, -0.1, 0), "cm")),
+        plot.margin = margin(12, 5, 8, 10))+
   scale_x_date("", expand = c(0,0), limits = as.Date(c("2005/01/01", "2023/12/31")), date_breaks = "2 years", date_labels = "%Y")+
   scale_y_continuous("Average spat/shell", expand = c(0,0), limits = c(0, 8))
 #
@@ -781,21 +781,23 @@ Repro_t %>% filter(Site == "SL-S") %>%
         strip.background = element_rect(fill = "#999999"),
         panel.spacing = unit(0, "lines"), legend.position = "none",
         #axis.text.y = element_text(size = 10), 
-        axis.text.x = element_text(margin = unit(c(0.3, 0, -0.2, 0), "cm")))+
+        axis.text.x = element_text(margin = unit(c(0.3, 0, -0.2, 0), "cm")),
+        plot.margin = margin(12, 5, 8, 10))+
   scale_x_date("", expand = c(0,0), limits = as.Date(c("2005/01/01", "2023/12/31")), date_breaks = "2 years", date_labels = "%Y")+
   scale_y_continuous("Proportion of samples", expand = c(0,0), limits = c(0,1), breaks = c(0, 0.25, 0.5, 0.75, 1))+
   scale_fill_manual(values = c("#FF0000", "#9966FF"))
 #
 Rcrt_t %>%  filter(Site == "SL-S") %>%
   ggplot(aes(MonYr, meanRcrt))+
-  geom_bar(stat = "identity")+
+  geom_bar(stat = "identity", fill = "black", color = "black")+
   geom_rect(data = Rcrt_t %>% filter(meanRcrt == 0 & Site == "SL-S"), aes(xmin = MonYr, xmax = MonYr+30, ymin = -Inf, ymax = Inf), fill = "#E69F00", alpha = 0.5)+
   geom_rect(data = Rcrt_t %>% filter(is.na(meanRcrt) & Site == "SL-S"), aes(xmin = MonYr, xmax = MonYr+30, ymin = -Inf, ymax = Inf), fill = "#FF0000", alpha = 0.7)+
   Prez+ 
   theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
         strip.background = element_rect(fill = "#999999"),
         panel.spacing = unit(0, "lines"), legend.position = "top",
-        axis.text.x = element_text(margin = unit(c(0.3, 0, -0.1, 0), "cm")))+
+        axis.text.x = element_text(margin = unit(c(0.3, 0, -0.1, 0), "cm")),
+        plot.margin = margin(12, 5, 8, 10))+
   scale_x_date("", expand = c(0,0), limits = as.Date(c("2005/01/01", "2023/12/31")), date_breaks = "2 years", date_labels = "%Y")+
   scale_y_continuous("Average spat/shell", expand = c(0,0), limits = c(0, 8))
 #
@@ -803,14 +805,14 @@ Rcrt_t %>%  filter(Site == "SL-S") %>%
 Selected_data_NRSNS_2 %>% filter(Mature == "M" & Site == "SL-S") %>%
   group_by(Site, t_diff, Season) %>% summarise(meanProp = mean(Prop, na.rm = T)) %>%
   ggplot(aes(t_diff, meanProp, color = Season, group = Season))+
-  geom_point(size = 3.5)+ 
+  geom_point(size = 6)+ 
   lemon::facet_rep_grid(Season~.)+
   geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, color = "black", linewidth = 0.75)+
   geom_hline(aes(yintercept = 0.5), linetype = "dashed")+
   scale_x_continuous("Number of months", expand = c(0,0))+
-  scale_y_continuous("Proportion active", expand = c(0,0.05), limits = c(0,1))+
+  scale_y_continuous("Proportion active", expand = c(0,0.09), limits = c(0,1))+
   scale_color_manual(values = c("#009E73", "#FF0000", "#E69F00", "#9966FF"))+
-  Prez +  theme(strip.text.y = element_text(color = "black", size = 14, family = "sans", face = "bold"),
+  Prez +  theme(strip.text.y = element_text(color = "black", size = 16, family = "sans", face = "bold"),
                 strip.background = element_rect(fill = "#CCCCCC"),
                 panel.spacing = unit(0, "lines")) +
   theme(legend.position = "none")
@@ -818,12 +820,12 @@ Selected_data_NRSNS_2 %>% filter(Mature == "M" & Site == "SL-S") %>%
 #
 tdiff_SH %>% drop_na(meanSH) %>% filter(Site == "SL-S") %>%
   ggplot(aes(t_diff, meanSH, color = Mature))+
-  geom_point(size = 3.5)+
+  geom_point(size = 6)+
   lemon::facet_rep_grid(Season~.)+
   scale_x_continuous("Number of months", expand = c(0.005,0))+
   scale_y_continuous("Average shell height (mm)", expand = c(0,0.05), limits = c(0,100))+
   scale_color_manual(values = c("#009E73", "#E69F00"))+
-  Prez +  theme(strip.text.y = element_text(color = "black", size = 14, family = "sans", face = "bold"),
+  Prez +  theme(strip.text.y = element_text(color = "black", size = 16, family = "sans", face = "bold"),
                 strip.background = element_rect(fill = "#CCCCCC"),
                 panel.spacing = unit(0, "lines")) +
   theme(legend.position = "none")
@@ -881,7 +883,8 @@ Prop_modS <- glmmTMB(sProp ~ Year,
 Prop_modI <- glmmTMB(sProp ~ Year, 
                      data = Overall_counts %>% subset(Final_Stage == 4), 
                      family = "beta_family")
-Anova(Prop_modI)
+Anova(Prop_modR)
+Anova(Prop_modS)
 Prop_means <- full_join(Prop_means, 
                         rbind(cld(lsmeans(Prop_modD, c("Year")), Letters = letters) %>% arrange(Year) %>% mutate(Final_Stage = as.factor(1)) %>% dplyr::select(Year:SE, .group, Final_Stage),
                               cld(lsmeans(Prop_modR, c("Year")), Letters = letters) %>% arrange(Year) %>% mutate(Final_Stage = as.factor(2)) %>% dplyr::select(Year:SE, .group, Final_Stage),
@@ -911,14 +914,14 @@ Prop_means %>%
   ggplot(aes(Year, meanProp, color = Final_Stage, group = Final_Stage))+
   #geom_smooth(method = "glm", color = "#666666", alpha = 0.5)+
   geom_line(linewidth = 2)+
-  geom_text(data = Prop_means %>% filter(!grepl("abcd|bcd", Letters)) %>% filter(Final_Stage != 1), aes(label = Letters), vjust = -1.3, color = "black", size = 5)+
+  geom_text(data = Prop_means %>% filter(!grepl("abcd|bcd", Letters)) %>% filter(Final_Stage != 1), aes(label = Letters), vjust = -0.50, color = "black", size = 7)+
   lemon::facet_rep_grid(Final_Stage~.)+
   #geom_smooth(data = Prop_preds, aes(Year, pred, ymin = lwr, ymax = upr, group = Final_Stage), stat = "identity", color = "black")+
   theme_classic()+ StaColor + Prez + 
   scale_x_discrete("", expand = c(0,0.5))+
   scale_y_continuous("Average proportion", expand = c(0,0), limits = c(0,1))+
-  theme(legend.text = element_text(size = 14),  legend.title = element_blank(), legend.position = "top",
-        axis.text.x = element_text(angle = 30, margin = unit(c(0.35, 0, -0.3, 0), "cm")), panel.spacing = unit(0.1, "lines"), 
+  theme(legend.text = element_text(size = 18),  legend.title = element_blank(), legend.position = "top",
+        axis.text.x = element_text(angle = 40, vjust = 0.75, margin = unit(c(0.35, 0, -0.3, 0), "cm")), panel.spacing = unit(0.1, "lines"), 
         strip.background = element_blank(), strip.text = element_blank(),
         axis.text.y = element_text(size = 14, margin = unit(c(0, 0.1, 0, 0.2), "cm")))
 #
