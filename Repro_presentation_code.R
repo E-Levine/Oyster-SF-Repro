@@ -1060,3 +1060,201 @@ All_oysters_clean %>% filter(Final_Stage != 8 & Final_Stage != 0) %>%
   scale_y_continuous("Shell height", expand = c(0,0), limits = c(0,100))+
   theme(strip.text = element_blank())
   
+####Rework with exclusion of spent in mature#####
+#
+#Using Selected_samples function
+Complete_Act <- function(df){
+  df1 <- data.frame()
+  for (i in unique(df$Site)) {
+    df3 <- df %>%  ungroup() %>% subset(Site == i) %>% droplevels() %>%
+      complete(Year, Month, Site, Station, Active, fill = list(Count = -1))
+    
+    df1 <- rbind(df1, df3)
+  }
+  return(df1)
+}
+#
+Repro_Act_props <- merge(Maturity %>% mutate(Active = as.factor(ifelse(Final_Stage == 1 | Final_Stage == 2, "Active", 
+                                                                       ifelse(Final_Stage == 3 | Final_Stage == 4, "Inactive", "Z")))) %>% 
+                           dplyr::select(Year, Month, Site, Station, Final_Stage, Active) %>%
+                           group_by(Year, Month, Site, Station, Active) %>%
+                           summarise(Count = n()) %>% 
+                           Complete_Act(),
+                         Maturity %>% mutate(Active = as.factor(ifelse(Final_Stage == 1 | Final_Stage == 2, "Active", 
+                                                                       ifelse(Final_Stage == 3 | Final_Stage == 4, "Inactive", "Z")))) %>% 
+                           dplyr::select(Year, Month, Site, Station, Final_Stage, Active) %>%
+                           group_by(Year, Month, Site, Station) %>%
+                           summarise(Total = n())) %>%
+  mutate(Prop = Count/Total,
+         Year = as.numeric(Year),
+         Month = as.numeric(Month)) %>% mutate(Prop = case_when(Prop <0 ~ 0, TRUE ~ Prop))
+#
+ReproSpat_A <- full_join(Repro_samples, Rcrt_df) %>% 
+  mutate(Site = as.factor(Site),
+         Type = case_when(Samples == 0 & Mean == 0 ~ "NRS&NS", 
+                          Samples == 0 & Mean > 0  ~ "NRS&S",
+                          Samples > 0 & Mean > 0 ~ "R&S",
+                          Samples > 0 & Mean == 0 ~ "R&NS",
+                          Samples > 0 & is.na(Mean) ~ "R&NSS",
+                          Samples == 0 & is.na(Mean) ~ "NRS&NSS",
+                          TRUE ~ NA)) %>%               
+  left_join(Repro_Act_props) 
+ReproSpat_A$Active[is.na(ReproSpat_A$Active)] <- "Z"
+#
+ReproSpat_A <- ReproSpat_A %>% mutate(Type = fct_relevel(Type, Sample_order))
+#
+#
+Selected_active_NRSNS <- Selected_samples(ReproSpat_A, "NRS&NS") %>%  group_by(Site, Station, temp) %>%
+  mutate(Season = ifelse(Month < 4, "Spring", 
+                         ifelse(Month > 9, "Winter", 
+                                ifelse(Month > 3 & Month < 7, "Summer", "Fall"))),
+         Prop = ifelse(t_diff == 0, 0, Prop)) %>%
+  mutate(Season = fct_relevel(Season, c("Spring", "Summer", "Fall", "Winter")),
+         Mature = ifelse(t_diff == 0, "M", Mature)) %>%
+  mutate(Season = first(Season)) %>% ungroup()
+#
+#All sites figure
+Selected_active_NRSNS %>% filter(Active == "Active") %>%
+  group_by(Site, t_diff, Season) %>% summarise(meanProp = mean(Prop, na.rm = T)) %>%
+  ggplot(aes(t_diff, meanProp, color = Season, group = Season))+
+  geom_point(size = 6)+ 
+  lemon::facet_rep_grid(Season~.)+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, color = "black", linewidth = 0.75)+
+  geom_hline(aes(yintercept = 0.5), linetype = "dashed")+
+  scale_x_continuous("Number of months", expand = c(0.005,0))+
+  scale_y_continuous("Proportion active", expand = c(0,0.09), limits = c(0,1))+
+  scale_color_manual(values = c("#009E73", "#FF0000", "#E69F00", "#9966FF"))+
+  Prez +  theme(strip.text.y = element_text(color = "black", size = 15, family = "sans", face = "bold"),
+                strip.background = element_rect(fill = "#CCCCCC"),
+                panel.spacing = unit(0, "lines")) +
+  theme(legend.position = "none")
+#
+###list of dates needed
+tdiff_A_SH <- left_join(Selected_active_NRSNS %>% filter(Active == "Active") %>%
+                        group_by(Site, t_diff, Season) %>% dplyr::select(Year:Station),
+                      Repro_full %>% 
+                        dplyr::select(Year:Station, Sample_Number, SH, Final_Stage, MonYr) %>% 
+                        mutate(Year = as.numeric(Year), Month = as.numeric(Month))) %>% 
+  mutate(Active = ifelse(Final_Stage == 1 | Final_Stage == 2, "Active", "Inactive"),
+         Season = fct_relevel(Season, c("Spring", "Summer", "Fall", "Winter"))) %>%
+  group_by(t_diff, MonYr, Season, Site, Station, Active) %>%
+  summarise(meanSH = mean(SH, na.rm = T))
+#
+tdiff_A_SH %>% drop_na(meanSH) %>%
+  ggplot(aes(t_diff, meanSH, color = Active))+
+  geom_point(size = 6)+  lemon::facet_rep_grid(Season~.)+
+  scale_x_continuous("Number of months", expand = c(0.005,0))+
+  scale_y_continuous("Average shell height (mm)", expand = c(0,0.05), limits = c(0,100))+
+  scale_color_manual(values = c("#FF0000",  "#9966FF"))+
+  Prez +  theme(strip.text.y = element_text(color = "black", size = 15, family = "sans", face = "bold"),
+                strip.background = element_rect(fill = "#CCCCCC"),
+                panel.spacing = unit(0, "lines")) +
+  theme(legend.position = "none")
+#
+#
+###SLS example
+ReproSampling_active <- function(df) {
+  #
+  #Create data frame for final selected data and dates/number of samples
+  Selected_repro_data <- data.frame()
+  Dates_repro_data <- data.frame()
+  Sites_list <- unique(df$Site)
+  Site_active <- data.frame()
+  Site_active_summ <- data.frame()
+  
+  for (j in Sites_list){
+    #Filter data for site (Site_repro) and determine number reproductively active each month (Site_active)
+    Site_repro <-  Repro_samples %>% filter(Site == j, MonYr >= (Start_dates %>% filter(Site == j))$Start_Date)
+    Site_active_a <- Repro_full %>% filter(Site == j, MonYr >= (Start_dates %>% filter(Site == j))$Start_Date & Final_Stage != 8) %>%
+      #NOTE: When converting Final_Stage to integer, each value is 1 higher due to the "0" stage factor level (0 factor = 1 integer, 1=2, etc.)
+      mutate(Active = as.factor(ifelse(Final_Stage == 1 | Final_Stage == 2, "Active", "Inactive"))) %>% 
+      group_by(MonYr, Site, Station, Active) %>% summarise(Count = n()) #%>% drop_na(Active) 
+    #Summarize counts of active or not active, percent of monthly sample, and average SH of each class
+    Site_active_summ_i <- left_join(Site_active_a %>% group_by(MonYr, Site, Station, Active) %>% summarise(Count = sum(Count)),
+                                    Repro_samples_noB %>% group_by(Site, MonYr, Station) %>% summarise(Total = sum(Samples))) %>%
+      mutate(Pct = (Count/Total)*100) %>% #Adding percent of sample
+      left_join(Repro_full %>% filter(Site == j & Buceph == "N") %>% 
+                  mutate(Active = as.factor(ifelse(Final_Stage == 1 | Final_Stage == 2, "Active", "Inactive"))) %>%
+                  group_by(MonYr, Site, Station, Active) %>% summarise(meanSH = mean(SH, na.rm = T), sdSH = sd(SH, na.rm = T), minSH = min(SH, na.rm = T), maxSH = max(SH, na.rm = T)))
+    
+    #Determine number of stations for the desired site and all dates of study
+    Site_active_b <- Repro_full %>% filter(Site == j, MonYr >= (Start_dates %>% filter(Site == j))$Start_Date) %>%
+      mutate(Active = as.factor(ifelse(Final_Stage == 1 | Final_Stage == 2, "Active", "Inactive"))) %>% 
+      group_by(MonYr, Site, Station, Active) %>% summarise(Count = n()) %>% drop_na(Active) 
+    Stations <- unique(Site_repro$Station)
+    #Loop over data to determine 0s and samples for each station
+    for (i in Stations) {
+      Station_df_i <- filter(Site_repro, Station == i)
+      Station_rle <- rle(Station_df_i$Samples == 0) #Identify each first instance of 0 or non-zero and how many rows until next change
+      Station_first <- Station_rle$values == 0 & Station_rle$lengths > 1 #Select the first instance of each sequence of 0s
+      Station_index <- (cumsum(Station_rle$lengths)+1)[Station_first] #Get the index of the first instance 
+      Station_zeros <- Station_df_i[Station_index,] #Select the first instance of each sequence of 0s
+      
+      #Identify next time samples were collected
+      Station_rle_n <- rle(Station_df_i$Samples == 0)
+      Station_first_n <- Station_rle_n$values == 0 & Station_rle_n$lengths >= 1 
+      Station_last_index <- ((cumsum(Station_rle_n$lengths))[Station_first_n == FALSE])+1
+      Station_counts <- Station_df_i[Station_last_index,]
+      
+      #Filter to data for desired dates
+      (Station_repro_data_i <- rbind(Repro_full %>% dplyr::select(Year:Sex, Estuary, Final_Stage:MonYr) %>%
+                                       filter(MonYr %in% Station_zeros$MonYr & Site == j),
+                                     Repro_full %>% dplyr::select(Year:Sex, Estuary, Final_Stage:MonYr) %>%
+                                       filter(MonYr %in% Station_counts$MonYr & Site == j)))        
+      Selected_repro_data <- rbind(Selected_repro_data, Station_repro_data_i)
+      Dates_repro_data <- rbind(Dates_repro_data, Station_zeros, Station_counts) %>% drop_na(MonYr)
+    }
+    Site_active <- rbind(Site_active, Site_active_b)
+    Site_active_summ <- rbind(Site_active_summ, Site_active_summ_i)
+  }
+  return(list(Site_active, Site_active_summ, Selected_repro_data, Dates_repro_data))
+}
+#
+temp_A <- ReproSampling_active(Repro_samples)
+#
+##Separate each data frame
+Active_Repro <- as.data.frame(temp_A[1])
+Repro_tA <- Active_Repro %>% mutate(Days = days_in_month(MonYr))
+#Active vs inactive plot
+Repro_tA %>% filter(Site == "SL-S") %>%
+  ggplot(aes(MonYr, group = Active, fill = Active)) +
+  geom_bar(position = "fill", width = 31)+
+  Prez+ 
+  scale_fill_manual(values = c("#FF0000", "#9966FF")) +
+  theme(strip.text.y = element_text(color = "black", size = 11, family = "sans", face = "bold"),
+        strip.background = element_rect(fill = "#999999"),
+        panel.spacing = unit(0, "lines"), legend.position = "none",
+        #axis.text.y = element_text(size = 10), 
+        axis.text.x = element_text(margin = unit(c(0.3, 0, -0.2, 0), "cm")),
+        plot.margin = margin(12, 5, 8, 10))+
+  scale_x_date("", expand = c(0,0), limits = as.Date(c("2005/01/01", "2023/12/31")), date_breaks = "2 years", date_labels = "%Y")+
+  scale_y_continuous("Proportion of samples", expand = c(0,0), limits = c(0,1), breaks = c(0, 0.25, 0.5, 0.75, 1))
+#
+Selected_active_NRSNS %>% filter(Active == "Active" & Site == "SL-S") %>%
+  group_by(Site, t_diff, Season) %>% summarise(meanProp = mean(Prop, na.rm = T)) %>%
+  ggplot(aes(t_diff, meanProp, color = Season, group = Season))+
+  geom_point(size = 6)+ 
+  lemon::facet_rep_grid(Season~.)+
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, color = "black", linewidth = 0.75)+
+  geom_hline(aes(yintercept = 0.5), linetype = "dashed")+
+  scale_x_continuous("Number of months", expand = c(0,0))+
+  scale_y_continuous("Proportion active", expand = c(0,0.09), limits = c(0,1))+
+  scale_color_manual(values = c("#009E73", "#E69F00"))+
+  Prez +  theme(strip.text.y = element_text(color = "black", size = 16, family = "sans", face = "bold"),
+                strip.background = element_rect(fill = "#CCCCCC"),
+                panel.spacing = unit(0, "lines")) +
+  theme(legend.position = "none")
+#
+#
+tdiff_A_SH %>% drop_na(meanSH) %>% filter(Site == "SL-S") %>%
+  ggplot(aes(t_diff, meanSH, color = Active))+
+  geom_point(size = 6)+
+  lemon::facet_rep_grid(Season~.)+
+  scale_x_continuous("Number of months", expand = c(0.005,0))+
+  scale_y_continuous("Average shell height (mm)", expand = c(0,0.05), limits = c(0,100))+
+  scale_color_manual(values = c("#FF0000",  "#9966FF"))+
+  Prez +  theme(strip.text.y = element_text(color = "black", size = 16, family = "sans", face = "bold"),
+                strip.background = element_rect(fill = "#CCCCCC"),
+                panel.spacing = unit(0, "lines")) +
+  theme(legend.position = "none")
+#
