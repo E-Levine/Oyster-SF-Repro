@@ -1237,7 +1237,7 @@ Selected_active_NRSNS %>% filter(Active == "Active" & Site == "SL-S") %>%
   lemon::facet_rep_grid(Season~.)+
   geom_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE, color = "black", linewidth = 0.75)+
   geom_hline(aes(yintercept = 0.5), linetype = "dashed")+
-  scale_x_continuous("Number of months", expand = c(0,0))+
+  scale_x_continuous("Number of months", expand = c(0,0), breaks = seq(2, 12, by = 2))+
   scale_y_continuous("Proportion active", expand = c(0,0.09), limits = c(0,1))+
   scale_color_manual(values = c("#009E73", "#E69F00"))+
   Prez +  theme(strip.text.y = element_text(color = "black", size = 16, family = "sans", face = "bold"),
@@ -1250,7 +1250,7 @@ tdiff_A_SH %>% drop_na(meanSH) %>% filter(Site == "SL-S") %>%
   ggplot(aes(t_diff, meanSH, color = Active))+
   geom_point(size = 6)+
   lemon::facet_rep_grid(Season~.)+
-  scale_x_continuous("Number of months", expand = c(0.005,0))+
+  scale_x_continuous("Number of months", expand = c(0.005,0), breaks = seq(2, 12, by = 2))+
   scale_y_continuous("Average shell height (mm)", expand = c(0,0.05), limits = c(0,100))+
   scale_color_manual(values = c("#FF0000",  "#9966FF"))+
   Prez +  theme(strip.text.y = element_text(color = "black", size = 16, family = "sans", face = "bold"),
